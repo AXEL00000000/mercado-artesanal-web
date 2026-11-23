@@ -1,0 +1,41 @@
+/* Estilos globales y colores de Mercado Artesanal */
+:root {
+  --fondo: #17110d;
+  --fondo-panel: #231a14;
+  --fondo-campo: #1b1410;
+  --borde: #3a2e25;
+  --dorado: #c9a45c;
+  --dorado-claro: #e0c288;
+  --texto: #f3ece1;
+  --texto-suave: #a8998a;
+  --error: #e58a7a;
+  --exito: #8fc79a;
+
+  --fuente-logo: 'Cinzel', serif;
+  --fuente-titulo: 'Playfair Display', serif;
+  --fuente-texto: 'Lato', system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--fuente-texto);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input {
+  font: inherit;
+}
