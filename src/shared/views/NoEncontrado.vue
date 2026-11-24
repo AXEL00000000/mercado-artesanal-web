@@ -12,8 +12,12 @@ import BotonBase from '@/shared/components/BotonBase.vue'
 </template>
 
 <style scoped>
+.no-encontrado > * + * {
+  margin-top: var(--space-3);
+}
+
 .no-encontrado {
-  padding-block: var(--space-8);
+  padding-block: var(--space-7);
   text-align: center;
 }
 
@@ -22,7 +26,7 @@ import BotonBase from '@/shared/components/BotonBase.vue'
   color: var(--color-primario);
   font-family: var(--font-titulos);
   font-size: var(--texto-3xl);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .no-encontrado p {

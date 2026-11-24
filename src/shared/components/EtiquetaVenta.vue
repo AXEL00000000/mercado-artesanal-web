@@ -17,7 +17,7 @@ defineProps<{ modo: ModoVenta }>()
   color: var(--color-etiqueta-texto);
   font-size: var(--texto-xs);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.3;
   white-space: nowrap;
 }
 </style>

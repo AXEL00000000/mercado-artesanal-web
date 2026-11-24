@@ -42,3 +42,6 @@ __screenshots__/
 .env
 .env.*
 !.env.example
+
+# Material de diseño local
+propuesta/

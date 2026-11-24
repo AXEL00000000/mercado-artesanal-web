@@ -10,14 +10,17 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
   background: var(--color-fondo);
   color: var(--color-texto);
-  font-family: var(--font-texto);
-  font-size: var(--texto-base);
-  line-height: 1.5;
+  font: 400 var(--texto-base) / 1.5 var(--font-texto);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -25,35 +28,46 @@ h1,
 h2,
 h3,
 h4 {
-  margin: 0 0 var(--space-3);
+  margin: 0;
+  min-width: 0;
   font-family: var(--font-titulos);
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
 
 h1 {
-  font-size: var(--texto-3xl);
-}
-
-h2 {
   font-size: var(--texto-2xl);
 }
 
-h3 {
+h2 {
   font-size: var(--texto-xl);
 }
 
-p {
-  margin: 0 0 var(--space-3);
+h3 {
+  font-size: var(--texto-lg);
+}
+
+p,
+dl,
+dd {
+  margin: 0;
 }
 
 a {
   color: inherit;
+  text-underline-offset: 0.16em;
+}
+
+a:hover {
+  color: var(--color-primario);
 }
 
 img {
   display: block;
   max-width: 100%;
+  height: auto;
 }
 
 button,
@@ -65,7 +79,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-foco);
+  outline: 2px solid var(--color-foco);
   outline-offset: 2px;
 }
 
@@ -73,7 +87,7 @@ textarea {
   width: 100%;
   max-width: var(--ancho-maximo);
   margin-inline: auto;
-  padding-inline: var(--space-4);
+  padding-inline: var(--margen-lateral);
 }
 
 .solo-lectores {
@@ -81,6 +95,13 @@ textarea {
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }

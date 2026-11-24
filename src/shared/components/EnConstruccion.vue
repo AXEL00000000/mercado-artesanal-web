@@ -11,8 +11,12 @@ defineProps<{ modulo: string; titulo: string }>()
 </template>
 
 <style scoped>
+.construccion > * + * {
+  margin-top: var(--space-3);
+}
+
 .construccion {
-  padding-block: var(--space-8);
+  padding-block: var(--space-7);
   text-align: center;
 }
 

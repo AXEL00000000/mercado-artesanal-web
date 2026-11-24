@@ -181,7 +181,7 @@ function primerNombre(nombre: string) {
   top: 0;
   z-index: 10;
   border-bottom: 1px solid var(--color-linea);
-  background: var(--color-fondo);
+  background: var(--color-superficie);
 }
 
 .encabezado__fila {
@@ -190,16 +190,14 @@ function primerNombre(nombre: string) {
   grid-template-areas: 'logo buscador navegacion';
   align-items: center;
   gap: var(--space-5);
-  min-height: var(--alto-encabezado);
-  padding-block: var(--space-2);
+  padding-block: var(--space-4);
 }
 
 .logo {
   grid-area: logo;
   font-family: var(--font-titulos);
   font-size: var(--texto-xl);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -207,16 +205,17 @@ function primerNombre(nombre: string) {
 .buscador {
   grid-area: buscador;
   position: relative;
-  max-width: 32rem;
+  max-width: 480px;
 }
 
 .buscador input {
   width: 100%;
-  min-height: 2.75rem;
-  padding: var(--space-2) var(--space-4) var(--space-2) 2.75rem;
+  min-height: var(--alto-control);
+  padding: 0 var(--space-4) 0 calc(var(--space-4) + 20px + var(--space-2));
   border: 1px solid var(--color-linea);
   border-radius: var(--radius-pildora);
-  background: var(--color-superficie);
+  background: var(--color-fondo);
+  font-size: var(--texto-sm);
 }
 
 .buscador input::placeholder {
@@ -227,12 +226,12 @@ function primerNombre(nombre: string) {
   position: absolute;
   top: 50%;
   left: var(--space-4);
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 20px;
+  height: 20px;
   transform: translateY(-50%);
   fill: none;
   stroke: var(--color-texto-secundario);
-  stroke-width: 2;
+  stroke-width: 1.8;
   stroke-linecap: round;
 }
 
@@ -241,18 +240,15 @@ function primerNombre(nombre: string) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  font-size: var(--texto-sm);
+  font-weight: 600;
 }
 
 .navegacion__enlace,
 .navegacion__entrar {
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  font-weight: 600;
+  border-radius: var(--radius-pildora);
   text-decoration: none;
-}
-
-.navegacion__enlace:hover {
-  background: var(--color-suave);
 }
 
 .navegacion__enlace.router-link-exact-active {
@@ -261,29 +257,36 @@ function primerNombre(nombre: string) {
 }
 
 .navegacion__entrar {
-  border: 1.5px solid var(--color-texto);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--alto-control);
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-linea);
+  background: var(--color-fondo);
 }
 
 .navegacion__entrar:hover {
   background: var(--color-suave);
+  color: var(--color-texto);
 }
 
 .carrito {
   position: relative;
   display: grid;
   place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--alto-control);
+  height: var(--alto-control);
   border-radius: var(--radius-pildora);
 }
 
 .carrito:hover {
   background: var(--color-suave);
+  color: var(--color-texto);
 }
 
 .carrito svg {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentcolor;
   stroke-width: 1.8;
@@ -293,17 +296,17 @@ function primerNombre(nombre: string) {
 
 .carrito__contador {
   position: absolute;
-  top: 0;
+  top: 2px;
   right: 0;
-  min-width: 1.25rem;
-  height: 1.25rem;
+  min-width: 18px;
+  height: 18px;
   padding-inline: var(--space-1);
   border-radius: var(--radius-pildora);
   background: var(--color-primario);
   color: var(--color-sobre-primario);
   font-size: var(--texto-xs);
-  font-weight: 700;
-  line-height: 1.25rem;
+  font-weight: 600;
+  line-height: 18px;
   text-align: center;
 }
 
@@ -315,19 +318,20 @@ function primerNombre(nombre: string) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 2.75rem;
+  min-height: var(--alto-control);
   padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
   border: 1px solid var(--color-linea);
   border-radius: var(--radius-pildora);
-  background: var(--color-superficie);
+  background: var(--color-fondo);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .menu__inicial {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-pildora);
   background: var(--color-etiqueta-fondo);
   color: var(--color-etiqueta-texto);
@@ -338,14 +342,13 @@ function primerNombre(nombre: string) {
 .menu__nombre {
   max-width: 9rem;
   overflow: hidden;
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .menu__flecha {
-  width: 1rem;
-  height: 1rem;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentcolor;
   stroke-width: 2;
@@ -355,7 +358,7 @@ function primerNombre(nombre: string) {
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
-  min-width: 14rem;
+  min-width: 224px;
   margin: 0;
   padding: var(--space-2);
   border: 1px solid var(--color-linea);
@@ -386,8 +389,9 @@ function primerNombre(nombre: string) {
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 0;
-  border-radius: calc(var(--radius-control) - 4px);
+  border-radius: var(--radius-control);
   background: none;
+  font-weight: 400;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -396,6 +400,7 @@ function primerNombre(nombre: string) {
 .menu__lista a:hover,
 .menu__lista button:hover {
   background: var(--color-suave);
+  color: var(--color-texto);
 }
 
 .contenido {
@@ -403,11 +408,11 @@ function primerNombre(nombre: string) {
 }
 
 .pie {
-  margin-top: var(--space-8);
+  margin-top: var(--space-7);
   padding-block: var(--space-6);
   border-top: 1px solid var(--color-linea);
   color: var(--color-texto-secundario);
-  font-size: var(--texto-sm);
+  font-size: 0.8125rem;
 }
 
 .pie p {
@@ -420,11 +425,17 @@ function primerNombre(nombre: string) {
     grid-template-areas:
       'logo navegacion'
       'buscador buscador';
-    gap: var(--space-2) var(--space-3);
+    gap: var(--space-3);
+    padding-block: var(--space-3);
   }
 
   .logo {
     font-size: var(--texto-lg);
+  }
+
+  .buscador input {
+    border-color: transparent;
+    background: var(--color-suave);
   }
 
   .buscador {

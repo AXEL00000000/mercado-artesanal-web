@@ -45,12 +45,16 @@
 
 ## Diseño
 
+Los valores de `tokens.css` salen de la propuesta aprobada (estilo "Pericón"): crema de fondo, rojo barro para comprar, verde para WhatsApp, Bricolage Grotesque en títulos y precios, Onest en el texto. Fotos con radio de 18 px, controles de 14 px y botones en píldora.
+
 - Solo variables de `src/shared/styles/tokens.css` (`--color-*`, `--font-*`, `--space-*`, `--radius-*`). **Nada de colores, fuentes ni medidas escritos a mano.**
 - Usa los componentes base de `src/shared/components/` (`BotonBase`, `EtiquetaVenta`, `TarjetaProducto`, `EstadoCarga`, `MensajeError`).
 - **El catálogo no lleva botones en las tarjetas**: la tarjeta entera lleva al detalle.
 - **El detalle tiene una sola acción principal**:
   - Precio fijo → botón rojo (`variante="comprar"`): se compra en la página.
   - Precio a tratar → botón verde (`variante="whatsapp"`): se consulta por WhatsApp.
+  - El rojo y el verde nunca aparecen juntos en la misma pantalla. En precio fijo, las dudas van como enlace de texto, no como segundo botón.
+  - El botón principal usa `grande` (52 px de alto, ancho completo hasta 420 px).
 - Primero que funcione; al final se unifica el diseño entre módulos.
 
 ## Backend (`mercado-artesanal-api`)

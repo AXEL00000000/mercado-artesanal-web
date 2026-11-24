@@ -11,33 +11,38 @@ defineProps<{ producto: ProductoTarjeta }>()
   <article class="tarjeta">
     <RouterLink :to="{ name: 'producto', params: { slug: producto.slug } }" class="tarjeta__enlace">
       <div class="tarjeta__foto">
+        <span class="tarjeta__hueco" aria-hidden="true">Foto</span>
         <img v-if="producto.imagen" :src="producto.imagen" :alt="producto.nombre" loading="lazy" />
-        <EtiquetaVenta :modo="producto.modo_venta" class="tarjeta__etiqueta" />
       </div>
-      <h3 class="tarjeta__nombre">{{ producto.nombre }}</h3>
+      <EtiquetaVenta :modo="producto.modo_venta" class="tarjeta__etiqueta" />
+      <div class="tarjeta__info">
+        <h3 class="tarjeta__nombre">{{ producto.nombre }}</h3>
+        <p class="tarjeta__origen">
+          {{ producto.productor.nombre_taller }}, {{ producto.comunidad.nombre }}
+        </p>
+        <p class="tarjeta__precio">
+          <template v-if="producto.modo_venta === 'tratar'">Desde </template
+          >{{ formatearPrecio(producto.precio) }}
+        </p>
+      </div>
     </RouterLink>
-    <p class="tarjeta__origen">
-      {{ producto.productor.nombre_taller }} · {{ producto.comunidad.nombre }}
-    </p>
-    <p class="tarjeta__precio">
-      <template v-if="producto.modo_venta === 'tratar'">Desde </template
-      >{{ formatearPrecio(producto.precio) }}
-    </p>
   </article>
 </template>
 
 <style scoped>
 .tarjeta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  min-width: 0;
 }
 
 .tarjeta__enlace {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   text-decoration: none;
+}
+
+.tarjeta__enlace:hover {
+  color: inherit;
 }
 
 .tarjeta__foto {
@@ -49,28 +54,38 @@ defineProps<{ producto: ProductoTarjeta }>()
 }
 
 .tarjeta__foto img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s;
 }
 
-.tarjeta__enlace:hover img {
-  transform: scale(1.03);
+.tarjeta__hueco {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-texto-secundario);
+  font-size: var(--texto-xs);
 }
 
 .tarjeta__etiqueta {
   position: absolute;
   top: var(--space-3);
   left: var(--space-3);
+  z-index: 2;
+  max-width: calc(100% - 2 * var(--space-3));
+}
+
+.tarjeta__info {
+  padding-top: var(--space-3);
 }
 
 .tarjeta__nombre {
-  margin: 0;
-  font-family: var(--font-texto);
-  font-size: var(--texto-base);
-  font-weight: 600;
-  line-height: 1.3;
+  font-size: 1.0625rem;
+  line-height: 1.25;
 }
 
 .tarjeta__enlace:hover .tarjeta__nombre {
@@ -78,15 +93,42 @@ defineProps<{ producto: ProductoTarjeta }>()
 }
 
 .tarjeta__origen {
-  margin: 0;
+  margin-top: var(--space-1);
   color: var(--color-texto-secundario);
-  font-size: var(--texto-sm);
+  font-size: 0.8125rem;
 }
 
 .tarjeta__precio {
-  margin: 0;
+  margin-top: var(--space-2);
   font-family: var(--font-titulos);
   font-size: var(--texto-lg);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+  .tarjeta__foto {
+    border-radius: var(--radius-control);
+  }
+
+  .tarjeta .tarjeta__etiqueta {
+    top: var(--space-2);
+    left: var(--space-2);
+    max-width: calc(100% - 2 * var(--space-2));
+    padding-inline: var(--space-2);
+    font-size: var(--texto-2xs);
+  }
+
+  .tarjeta__nombre {
+    font-size: 0.9375rem;
+  }
+
+  .tarjeta__origen {
+    font-size: var(--texto-xs);
+  }
+
+  .tarjeta__precio {
+    font-size: var(--texto-base);
+  }
 }
 </style>

@@ -5,6 +5,7 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router'
 const props = withDefaults(
   defineProps<{
     variante?: 'comprar' | 'whatsapp' | 'secundario'
+    /** Acción principal del detalle: 52 px de alto y ancho completo hasta 420 px. */
     grande?: boolean
     /** Ruta interna: se dibuja como RouterLink. */
     to?: RouteLocationRaw
@@ -45,13 +46,14 @@ const atributos = computed(() => {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 2.75rem;
-  padding: var(--space-2) var(--space-5);
-  border: 1.5px solid transparent;
-  border-radius: var(--radius-control);
+  min-height: var(--alto-control);
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pildora);
   font-family: var(--font-texto);
   font-weight: 600;
   font-size: var(--texto-base);
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -71,6 +73,7 @@ const atributos = computed(() => {
 
 .boton--comprar:not(:disabled):hover {
   background: var(--color-primario-hover);
+  color: var(--color-sobre-primario);
 }
 
 .boton--whatsapp {
@@ -80,6 +83,7 @@ const atributos = computed(() => {
 
 .boton--whatsapp:not(:disabled):hover {
   background: var(--color-whatsapp-hover);
+  color: var(--color-sobre-whatsapp);
 }
 
 .boton--secundario {
@@ -90,17 +94,19 @@ const atributos = computed(() => {
 
 .boton--secundario:not(:disabled):hover {
   background: var(--color-suave);
+  color: var(--color-texto);
 }
 
 .boton--grande {
-  min-height: 3.25rem;
-  padding-inline: var(--space-6);
-  font-size: var(--texto-lg);
+  width: 100%;
+  max-width: 420px;
+  min-height: var(--alto-boton-grande);
 }
 
 .boton--bloque {
   display: flex;
   width: 100%;
+  max-width: none;
 }
 
 .boton__giro {
