@@ -1,0 +1,58 @@
+/*
+  Estilo "Pericón". Usa solo estas variables: nada de colores, fuentes ni radios escritos a mano.
+  Contraste (WCAG AA, texto normal ≥ 4.5:1):
+    blanco sobre --color-primario ≈ 6.3:1 · blanco sobre --color-whatsapp ≈ 5.4:1
+    --color-texto-secundario sobre --color-fondo ≈ 5.9:1
+*/
+:root {
+  --color-fondo: #fff8ec;
+  --color-superficie: #fffcf5;
+  --color-texto: #2a1f14;
+  --color-texto-secundario: #6d5f4c;
+  --color-linea: #efe1c6;
+  --color-suave: #fbefd6;
+
+  --color-primario: #a63d2a;
+  --color-primario-hover: #8c3122;
+  --color-sobre-primario: #ffffff;
+
+  --color-whatsapp: #1e7a46;
+  --color-whatsapp-hover: #176238;
+  --color-sobre-whatsapp: #ffffff;
+
+  --color-etiqueta-fondo: #fce7b2;
+  --color-etiqueta-texto: #5a4310;
+
+  --color-error: #a63d2a;
+  --color-error-fondo: #fbe4dc;
+  --color-foco: #a63d2a;
+
+  --font-titulos: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-texto: 'Onest', system-ui, sans-serif;
+
+  --texto-xs: 0.75rem;
+  --texto-sm: 0.875rem;
+  --texto-base: 1rem;
+  --texto-lg: 1.125rem;
+  --texto-xl: 1.375rem;
+  --texto-2xl: 1.75rem;
+  --texto-3xl: 2.25rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --radius-foto: 18px;
+  --radius-control: 14px;
+  --radius-pildora: 999px;
+
+  --sombra-suave: 0 1px 2px rgb(42 31 20 / 6%), 0 4px 12px rgb(42 31 20 / 6%);
+
+  --ancho-maximo: 1200px;
+  --alto-encabezado: 4rem;
+}

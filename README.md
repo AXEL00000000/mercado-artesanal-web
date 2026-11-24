@@ -1,48 +1,81 @@
-# mercado-artesanal-web
+# Mercado Artesanal · Web
 
-This template should help get you started developing with Vue 3 in Vite.
+Frontend del marketplace de artesanía de comunidades de Oaxaca. Proyecto final de Servicios Web.
 
-## Recommended IDE Setup
+- API: https://oaken-darkgray-panther-10.hostingersite.com/api
+- Swagger: https://oaken-darkgray-panther-10.hostingersite.com/api/docs
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Stack
 
-## Recommended Browser Setup
+Vue 3 · Vite · TypeScript · Vue Router · Pinia · ESLint + oxlint · Prettier
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## Cómo correrlo
 
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+Necesitas Node `^22.18` o `>=24.12`.
 
 ```sh
 npm install
+cp .env.example .env   # apunta VITE_API_URL a la API
+npm run dev            # http://localhost:5173
 ```
 
-### Compile and Hot-Reload for Development
+Otros comandos: `npm run build` (revisa tipos y compila), `npm run lint`, `npm run format`.
 
-```sh
-npm run dev
+## Estructura
+
+```
+src/
+├── modules/              Un módulo por equipo; cada quien trabaja solo en el suyo
+│   ├── auth/             /login, /registro
+│   ├── catalogo/         /, /productos/:slug, /talleres/:id
+│   ├── compra/           /carrito, /checkout, /pedidos, /pedidos/:id
+│   ├── artesano/         /mi-taller y sus secciones
+│   └── admin/            /admin/talleres, /admin/catalogos
+│       ├── routes.ts     Rutas del módulo
+│       ├── views/        Páginas
+│       └── components/   Componentes propios del módulo
+├── router/               Junta las rutas de los módulos y aplica el guard global
+├── stores/               sesion.ts y carrito.ts (compartidos)
+└── shared/
+    ├── api/              cliente.ts (fetch + token + errores) y tipos.ts
+    ├── components/       BotonBase, EtiquetaVenta, TarjetaProducto, EstadoCarga, MensajeError
+    ├── layout/           LayoutPrincipal (encabezado y pie)
+    ├── styles/           tokens.css (variables de diseño) y base.css
+    ├── utils/            formatearPrecio, etc.
+    └── views/            404
 ```
 
-### Type-Check, Compile and Minify for Production
+### Rutas protegidas
 
-```sh
-npm run build
+En `meta` de cada ruta:
+
+| meta             | Efecto                                              |
+| ---------------- | --------------------------------------------------- |
+| `requiereSesion` | Sin sesión → `/login?regreso=<ruta>`                |
+| `soloAdmin`      | Sin sesión → login; si no es admin → inicio         |
+| `requiereTaller` | Sin sesión → login; si no tiene taller → inicio     |
+
+### Uso rápido
+
+```ts
+import { get, post, ErrorApi } from '@/shared/api/cliente'
+import type { PaginaProductos } from '@/shared/api/tipos'
+
+const pagina = await get<PaginaProductos>('/productos', { categoria: 'textiles', pagina: 1 })
+
+try {
+  await post('/pedidos', datos)
+} catch (e) {
+  if (e instanceof ErrorApi) console.log(e.status, e.mensaje, e.detalles)
+}
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+```ts
+const sesion = useSesionStore()   // token, usuario, estaAutenticado, esAdmin, tieneTaller, login(), logout()…
+const carrito = useCarritoStore() // items, total, cantidadTotal, agregar(), quitar(), cambiarCantidad(), vaciar()
 
-```sh
-npm run lint
+const resultado = carrito.agregar(producto, 1)
+if (!resultado.ok) mostrarError(resultado.error)
 ```
+
+Reglas del equipo y de diseño: [CONTRIBUTING.md](CONTRIBUTING.md).
