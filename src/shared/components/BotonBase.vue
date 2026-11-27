@@ -4,7 +4,8 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router'
 
 const props = withDefaults(
   defineProps<{
-    variante?: 'comprar' | 'whatsapp' | 'secundario'
+    /** comprar: rojo, solo para comprar · whatsapp: verde · peligro: eliminar y acciones destructivas */
+    variante?: 'comprar' | 'whatsapp' | 'secundario' | 'peligro'
     /** Acción principal del detalle: 52 px de alto y ancho completo hasta 420 px. */
     grande?: boolean
     /** Ruta interna: se dibuja como RouterLink. */
@@ -48,7 +49,7 @@ const atributos = computed(() => {
   gap: var(--space-2);
   min-height: var(--alto-control);
   padding: 0 var(--space-5);
-  border: 1px solid transparent;
+  border: var(--borde-fino) solid transparent;
   border-radius: var(--radius-pildora);
   font-family: var(--font-texto);
   font-weight: 600;
@@ -57,8 +58,8 @@ const atributos = computed(() => {
   text-decoration: none;
   cursor: pointer;
   transition:
-    background-color 0.15s,
-    border-color 0.15s;
+    background-color var(--duracion-rapida),
+    border-color var(--duracion-rapida);
 }
 
 .boton:disabled {
@@ -97,9 +98,20 @@ const atributos = computed(() => {
   color: var(--color-texto);
 }
 
+.boton--peligro {
+  background: var(--color-peligro-fondo);
+  color: var(--color-peligro);
+  border-color: var(--color-peligro);
+}
+
+.boton--peligro:not(:disabled):hover {
+  background: var(--color-peligro-fondo-hover);
+  color: var(--color-peligro);
+}
+
 .boton--grande {
   width: 100%;
-  max-width: 420px;
+  max-width: var(--ancho-boton-grande);
   min-height: var(--alto-boton-grande);
 }
 
@@ -112,7 +124,7 @@ const atributos = computed(() => {
 .boton__giro {
   width: 1em;
   height: 1em;
-  border: 2px solid currentcolor;
+  border: var(--borde-grueso) solid currentcolor;
   border-right-color: transparent;
   border-radius: var(--radius-pildora);
   animation: girar 0.7s linear infinite;

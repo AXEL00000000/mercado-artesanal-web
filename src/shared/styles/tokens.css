@@ -31,11 +31,20 @@
   --color-error-fondo: #fbe4dc;
   --color-foco: #a63d2a;
 
+  /* Acciones destructivas (eliminar): distintas del botón de comprar. Texto ≈ 5.2:1 */
+  --color-peligro: #a63d2a;
+  --color-peligro-fondo: #fbe4dc;
+  --color-peligro-fondo-hover: #f7d3c6;
+
+  --color-velo: rgb(42 31 20 / 45%);
+
   --font-titulos: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-texto: 'Onest', system-ui, sans-serif;
 
   --texto-2xs: 0.6875rem;
   --texto-xs: 0.75rem;
+  --texto-nota: 0.8125rem;
+  --espaciado-mayusculas: 0.04em;
   --texto-sm: 0.875rem;
   --texto-base: 1rem;
   --texto-lg: 1.125rem;
@@ -56,11 +65,38 @@
   --radius-pildora: 999px;
 
   --sombra-suave: 0 1px 2px rgb(42 31 20 / 6%), 0 4px 12px rgb(42 31 20 / 6%);
+  --sombra-capa: 0 8px 32px rgb(42 31 20 / 18%);
+
+  --borde-fino: 1px;
+  --borde-grueso: 2px;
+
+  --tamano-icono: 20px;
+  --tamano-icono-sm: 16px;
+  --tamano-avatar: 32px;
+  --tamano-contador: 18px;
+  --alto-logo: 44px;
+  --alto-logo-sm: 36px;
+  --interruptor-ancho: 44px;
+  --interruptor-alto: 24px;
+
+  --ancho-menu: 240px;
+  --ancho-panel-lateral: 480px;
+  --ancho-dialogo: 440px;
+  --ancho-texto: 60ch;
+  --ancho-texto-corto: 32ch;
+
+  --duracion-rapida: 0.15s;
+  --duracion-capa: 0.25s;
+
+  --z-encabezado: 10;
+  --z-menu: 20;
+  --z-capa: 100;
 
   --ancho-maximo: 1440px;
   --margen-lateral: 48px;
   --alto-control: 44px;
   --alto-boton-grande: 52px;
+  --ancho-boton-grande: 420px;
 }
 
 @media (max-width: 40rem) {
