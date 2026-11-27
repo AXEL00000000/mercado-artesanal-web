@@ -6,7 +6,8 @@ import BotonBase from '@/shared/components/BotonBase.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
 import TarjetaAuth from '../components/TarjetaAuth.vue'
 import CampoAuth from '../components/CampoAuth.vue'
-import { EMAIL_VALIDO, consultaDeRegreso, rutaDeRegreso } from '../validacion'
+import { destinoTrasSesion } from '@/shared/utils/navegacion'
+import { EMAIL_VALIDO, consultaDeRegreso } from '../validacion'
 
 const sesion = useSesionStore()
 const route = useRoute()
@@ -19,7 +20,9 @@ const enviando = ref(false)
 
 // Si ya hay sesión, no tiene caso mostrar el login
 onMounted(() => {
-  if (sesion.estaAutenticado) void router.replace(rutaDeRegreso(route.query))
+  if (sesion.estaAutenticado) {
+    void router.replace(destinoTrasSesion(sesion.usuario, route.query.regreso))
+  }
 })
 
 function validar(): boolean {
@@ -35,7 +38,7 @@ async function entrar() {
   enviando.value = true
   try {
     await sesion.login({ email: datos.email.trim(), password: datos.password })
-    await router.replace(rutaDeRegreso(route.query))
+    await router.replace(destinoTrasSesion(sesion.usuario, route.query.regreso))
   } catch (error) {
     // 401 "Email o contraseña incorrectos", 403 "La cuenta está desactivada", sin conexión…
     errorApi.value = error

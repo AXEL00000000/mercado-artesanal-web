@@ -6,12 +6,12 @@ import BotonBase from '@/shared/components/BotonBase.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
 import TarjetaAuth from '../components/TarjetaAuth.vue'
 import CampoAuth from '../components/CampoAuth.vue'
+import { destinoTrasSesion } from '@/shared/utils/navegacion'
 import {
   EMAIL_VALIDO,
   PASSWORD_MINIMO,
   TELEFONO_VALIDO,
   consultaDeRegreso,
-  rutaDeRegreso,
 } from '../validacion'
 
 const sesion = useSesionStore()
@@ -24,7 +24,9 @@ const errorApi = ref<unknown>(null)
 const enviando = ref(false)
 
 onMounted(() => {
-  if (sesion.estaAutenticado) void router.replace(rutaDeRegreso(route.query))
+  if (sesion.estaAutenticado) {
+    void router.replace(destinoTrasSesion(sesion.usuario, route.query.regreso))
+  }
 })
 
 function validar(): boolean {
@@ -53,7 +55,7 @@ async function crearCuenta() {
       password: datos.password,
       ...(telefono && { telefono }),
     })
-    await router.replace(rutaDeRegreso(route.query))
+    await router.replace(destinoTrasSesion(sesion.usuario, route.query.regreso))
   } catch (error) {
     // 409 "Ya existe una cuenta con ese email", 400 "Datos inválidos" con detalles…
     errorApi.value = error
