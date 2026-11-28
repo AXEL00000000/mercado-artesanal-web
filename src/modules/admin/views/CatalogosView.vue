@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { del, get, post, put } from '@/shared/api/cliente'
 import type { Categoria, Comunidad } from '@/shared/api/tipos'
 import BotonBase from '@/shared/components/BotonBase.vue'
+import DialogoConfirmar from '@/shared/components/DialogoConfirmar.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
+import LayoutPanel from '@/shared/components/LayoutPanel.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
+import SelectorDesplegable, {
+  type OpcionSelector,
+} from '../../catalogo/components/SelectorDesplegable.vue'
+
+const pestanasAdmin = [
+  { etiqueta: 'Talleres', to: { name: 'admin-talleres' } },
+  { etiqueta: 'Catálogos', to: { name: 'admin-catalogos' } },
+]
 
 const REGIONES_OAXACA = [
   'Cañada',
@@ -16,6 +26,10 @@ const REGIONES_OAXACA = [
   'Sierra Sur',
   'Valles Centrales',
 ]
+
+const opcionesRegion = computed<OpcionSelector[]>(() =>
+  REGIONES_OAXACA.map((reg) => ({ valor: reg, texto: reg })),
+)
 
 type SeccionActiva = 'categorias' | 'comunidades'
 
@@ -46,8 +60,12 @@ const formComDistrito = ref('')
 const formComRegion = ref(REGIONES_OAXACA[7]) // Valles Centrales default
 const guardandoCom = ref(false)
 
-// Confirmación de eliminación
-const elementoEliminar = ref<{ tipo: 'categoria' | 'comunidad'; identificador: string | number; nombre: string } | null>(null)
+// Confirmación de eliminación con DialogoConfirmar
+const elementoEliminar = ref<{
+  tipo: 'categoria' | 'comunidad'
+  identificador: string | number
+  nombre: string
+} | null>(null)
 const eliminando = ref(false)
 
 async function cargarDatos() {
@@ -189,8 +207,12 @@ async function guardarComunidad() {
   }
 }
 
-// Eliminación
-function solicitarEliminar(tipo: 'categoria' | 'comunidad', identificador: string | number, nombre: string) {
+// Eliminación con DialogoConfirmar
+function solicitarEliminar(
+  tipo: 'categoria' | 'comunidad',
+  identificador: string | number,
+  nombre: string,
+) {
   elementoEliminar.value = { tipo, identificador, nombre }
   accionError.value = null
 }
@@ -209,10 +231,10 @@ async function confirmarEliminar() {
     const { tipo, identificador, nombre } = elementoEliminar.value
     if (tipo === 'categoria') {
       await del(`/categorias/${identificador}`)
-      mostrarAviso(`Categoría "${nombre}" eliminada.`)
+      mostrarAviso(`Categoría "${nombre}" eliminada correctamente.`)
     } else {
       await del(`/comunidades/${identificador}`)
-      mostrarAviso(`Comunidad "${nombre}" eliminada.`)
+      mostrarAviso(`Comunidad "${nombre}" eliminada correctamente.`)
     }
     cancelarEliminar()
     await cargarDatos()
@@ -229,16 +251,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-catalogos contenedor">
-    <header class="admin-catalogos__cabecera">
-      <div class="admin-catalogos__titular">
-        <h1 class="admin-catalogos__titulo">Gestión de Catálogos</h1>
-        <p class="admin-catalogos__subtitulo">
-          Administración de ramas artesanales (FONART) y comunidades con origen territorial.
-        </p>
-      </div>
-
-      <!-- Selector de sección -->
+  <LayoutPanel
+    antetitulo="Administración"
+    titulo="Gestión de Catálogos"
+    descripcion="Administración de ramas artesanales y comunidades con origen territorial."
+    :pestanas="pestanasAdmin"
+  >
+    <!-- Selector de subsección tipo píldora -->
+    <div class="admin-catalogos__selector-seccion">
       <div class="admin-catalogos__pestanas" role="tablist">
         <button
           type="button"
@@ -257,10 +277,14 @@ onMounted(() => {
           Comunidades ({{ comunidades.length }})
         </button>
       </div>
-    </header>
+    </div>
 
     <!-- Avisos de éxito o error -->
-    <div v-if="mensajeExito" class="admin-catalogos__aviso admin-catalogos__aviso--exito" role="status">
+    <div
+      v-if="mensajeExito"
+      class="admin-catalogos__aviso admin-catalogos__aviso--exito"
+      role="status"
+    >
       {{ mensajeExito }}
     </div>
 
@@ -288,7 +312,11 @@ onMounted(() => {
       <!-- Formulario emergente / inline -->
       <div v-if="mostrandoFormCat" class="admin-formulario">
         <h3 class="admin-formulario__titulo">
-          {{ editandoCategoria ? `Editar categoría: ${editandoCategoria.nombre}` : 'Nueva categoría' }}
+          {{
+            editandoCategoria
+              ? `Editar categoría: ${editandoCategoria.nombre}`
+              : 'Nueva categoría'
+          }}
         </h3>
         <form class="admin-formulario__grid" @submit.prevent="guardarCategoria">
           <div class="admin-formulario__campo">
@@ -305,7 +333,7 @@ onMounted(() => {
 
           <div class="admin-formulario__campo">
             <label for="cat-slug" class="admin-formulario__label">
-              Slug (opcional, se autogenera si se deja vacío)
+              Slug (opcional, se autogenera del nombre)
             </label>
             <input
               id="cat-slug"
@@ -344,7 +372,6 @@ onMounted(() => {
           <thead>
             <tr>
               <th>Nombre</th>
-              <th>Slug</th>
               <th>Descripción</th>
               <th class="admin-tabla__num">Piezas</th>
               <th class="admin-tabla__acciones-th">Acciones</th>
@@ -353,7 +380,6 @@ onMounted(() => {
           <tbody>
             <tr v-for="cat in categorias" :key="cat.id">
               <td class="admin-tabla__destacado">{{ cat.nombre }}</td>
-              <td><code>{{ cat.slug }}</code></td>
               <td class="admin-tabla__desc">{{ cat.descripcion || '—' }}</td>
               <td class="admin-tabla__num">{{ cat.total_productos ?? 0 }}</td>
               <td class="admin-tabla__acciones-td">
@@ -381,7 +407,7 @@ onMounted(() => {
     <!-- SECCIÓN: COMUNIDADES -->
     <section v-else class="admin-catalogos__cuerpo">
       <div class="admin-catalogos__barra-accion">
-        <h2 class="admin-catalogos__subseccion-titulo">Localidades y regiones</h2>
+        <h2 class="admin-catalogos__subseccion-titulo">Localidades y regiones de Oaxaca</h2>
         <BotonBase variante="comprar" @click="abrirNuevaComunidad">
           + Nueva comunidad
         </BotonBase>
@@ -390,7 +416,11 @@ onMounted(() => {
       <!-- Formulario emergente / inline -->
       <div v-if="mostrandoFormCom" class="admin-formulario">
         <h3 class="admin-formulario__titulo">
-          {{ editandoComunidad ? `Editar comunidad: ${editandoComunidad.nombre}` : 'Nueva comunidad' }}
+          {{
+            editandoComunidad
+              ? `Editar comunidad: ${editandoComunidad.nombre}`
+              : 'Nueva comunidad'
+          }}
         </h3>
         <form class="admin-formulario__grid" @submit.prevent="guardarComunidad">
           <div class="admin-formulario__campo">
@@ -429,12 +459,14 @@ onMounted(() => {
           </div>
 
           <div class="admin-formulario__campo">
-            <label for="com-region" class="admin-formulario__label">Región *</label>
-            <select id="com-region" v-model="formComRegion" class="admin-formulario__select">
-              <option v-for="reg in REGIONES_OAXACA" :key="reg" :value="reg">
-                {{ reg }}
-              </option>
-            </select>
+            <label class="admin-formulario__label">Región *</label>
+            <SelectorDesplegable
+              id="com-region"
+              :model-value="formComRegion ?? ''"
+              :opciones="opcionesRegion"
+              placeholder="Seleccionar región..."
+              @change="(val) => (formComRegion = String(val))"
+            />
           </div>
 
           <div class="admin-formulario__acciones admin-formulario__campo--full">
@@ -490,62 +522,25 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- Diálogo de confirmación de eliminación -->
-    <div v-if="elementoEliminar" class="admin-modal" role="dialog" aria-modal="true">
-      <div class="admin-modal__tarjeta">
-        <h3 class="admin-modal__titulo">¿Eliminar {{ elementoEliminar.tipo }}?</h3>
-        <p class="admin-modal__texto">
-          Estás por eliminar "<strong>{{ elementoEliminar.nombre }}</strong>".
-          Esta acción no se puede deshacer si no cuenta con registros vinculados.
-        </p>
-        <div class="admin-modal__acciones">
-          <BotonBase
-            variante="comprar"
-            :cargando="eliminando"
-            @click="confirmarEliminar"
-          >
-            Confirmar eliminación
-          </BotonBase>
-          <BotonBase
-            variante="secundario"
-            :disabled="eliminando"
-            @click="cancelarEliminar"
-          >
-            Cancelar
-          </BotonBase>
-        </div>
-      </div>
-    </div>
-  </div>
+    <!-- Diálogo accesible de confirmación de eliminación -->
+    <DialogoConfirmar
+      :abierto="elementoEliminar !== null"
+      :titulo="`¿Eliminar ${elementoEliminar?.tipo === 'categoria' ? 'categoría' : 'comunidad'}?`"
+      :mensaje="`Estás por eliminar '${elementoEliminar?.nombre}'. Esta acción no se puede deshacer y fallará si tiene piezas o talleres vinculados.`"
+      texto-confirmar="Eliminar"
+      texto-cancelar="Cancelar"
+      peligroso
+      :cargando="eliminando"
+      @confirmar="confirmarEliminar"
+      @cancelar="cancelarEliminar"
+    />
+  </LayoutPanel>
 </template>
 
 <style scoped>
-.admin-catalogos {
-  padding-block: var(--space-6);
-}
-
-.admin-catalogos__cabecera {
+.admin-catalogos__selector-seccion {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
   margin-bottom: var(--space-5);
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.admin-catalogos__titular {
-  max-width: 580px;
-}
-
-.admin-catalogos__titulo {
-  font-size: var(--texto-2xl);
-  color: var(--color-texto);
-  margin-bottom: var(--space-1);
-}
-
-.admin-catalogos__subtitulo {
-  font-size: var(--texto-sm);
-  color: var(--color-texto-secundario);
 }
 
 .admin-catalogos__pestanas {
@@ -561,10 +556,12 @@ onMounted(() => {
   border: none;
   border-radius: var(--radius-pildora);
   background: transparent;
+  font-family: var(--font-texto);
   font-size: var(--texto-sm);
   font-weight: 600;
   color: var(--color-texto-secundario);
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .admin-catalogos__pestana--activa {
@@ -601,6 +598,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 .admin-catalogos__subseccion-titulo {
@@ -645,7 +644,6 @@ onMounted(() => {
 }
 
 .admin-formulario__input,
-.admin-formulario__select,
 .admin-formulario__textarea {
   min-height: var(--alto-control);
   padding: var(--space-2) var(--space-3);
@@ -653,7 +651,14 @@ onMounted(() => {
   border-radius: var(--radius-control);
   background: var(--color-fondo);
   color: var(--color-texto);
+  font-family: var(--font-texto);
   font-size: var(--texto-sm);
+}
+
+.admin-formulario__input:focus,
+.admin-formulario__textarea:focus {
+  outline: 2px solid var(--color-foco);
+  outline-offset: 1px;
 }
 
 .admin-formulario__textarea {
@@ -734,6 +739,7 @@ onMounted(() => {
 .admin-tabla__btn-accion {
   background: transparent;
   border: none;
+  font-family: var(--font-texto);
   font-size: var(--texto-xs);
   font-weight: 600;
   color: var(--color-primario);
@@ -747,46 +753,6 @@ onMounted(() => {
 
 .admin-tabla__btn-accion--peligro {
   color: var(--color-error);
-}
-
-/* Modal */
-.admin-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(42, 31, 20, 0.4);
-  display: grid;
-  place-items: center;
-  z-index: 50;
-  padding: var(--space-4);
-}
-
-.admin-modal__tarjeta {
-  max-width: 480px;
-  width: 100%;
-  padding: var(--space-5);
-  background: var(--color-superficie);
-  border-radius: var(--radius-control);
-  box-shadow: var(--sombra-suave);
-  border: 1px solid var(--color-linea);
-}
-
-.admin-modal__titulo {
-  font-size: var(--texto-lg);
-  color: var(--color-texto);
-  margin-bottom: var(--space-2);
-}
-
-.admin-modal__texto {
-  font-size: var(--texto-sm);
-  color: var(--color-texto-secundario);
-  line-height: 1.5;
-  margin-bottom: var(--space-4);
-}
-
-.admin-modal__acciones {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
 }
 
 @media (max-width: 40rem) {

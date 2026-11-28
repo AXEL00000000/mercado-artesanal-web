@@ -1,62 +1,44 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { get, patch } from '@/shared/api/cliente'
+import type { DecisionTaller, TallerAdmin } from '@/shared/api/tipos'
 import BotonBase from '@/shared/components/BotonBase.vue'
+import DialogoConfirmar from '@/shared/components/DialogoConfirmar.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
+import LayoutPanel from '@/shared/components/LayoutPanel.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
 
-interface ArtesanoContacto {
-  id: number
-  nombre: string
-  email: string
-  telefono: string | null
-}
-
-interface TallerAdmin {
-  id: number
-  nombre_taller: string
-  artesano: ArtesanoContacto | string
-  estado_verificacion: 'pendiente' | 'aprobado' | 'rechazado'
-  biografia: string | null
-  foto_url: string | null
-  whatsapp: string
-  comunidad: {
-    id: number
-    nombre: string
-    municipio?: string
-    region: string
-  }
-  total_productos: number
-  created_at?: string
-}
+const pestanasAdmin = [
+  { etiqueta: 'Talleres', to: { name: 'admin-talleres' } },
+  { etiqueta: 'Catálogos', to: { name: 'admin-catalogos' } },
+]
 
 const cargando = ref(true)
 const error = ref<unknown>(null)
-const talleres = ref<TallerAdmin[]>([])
+const todosLosTalleres = ref<TallerAdmin[]>([])
 const filtroEstado = ref<'pendiente' | 'aprobado' | 'rechazado'>('pendiente')
 const procesandoId = ref<number | null>(null)
 const mensajeAccion = ref<string | null>(null)
 
-function nombreArtesano(taller: TallerAdmin): string {
-  if (typeof taller.artesano === 'object' && taller.artesano !== null) {
-    return taller.artesano.nombre
-  }
-  return String(taller.artesano ?? 'Artesano')
-}
+// Contadores de estado para las pestañas
+const conteoPendientes = computed(
+  () => todosLosTalleres.value.filter((t) => t.estado_verificacion === 'pendiente').length,
+)
+const conteoAprobados = computed(
+  () => todosLosTalleres.value.filter((t) => t.estado_verificacion === 'aprobado').length,
+)
+const conteoRechazados = computed(
+  () => todosLosTalleres.value.filter((t) => t.estado_verificacion === 'rechazado').length,
+)
 
-function emailArtesano(taller: TallerAdmin): string | null {
-  if (typeof taller.artesano === 'object' && taller.artesano !== null) {
-    return taller.artesano.email
-  }
-  return null
-}
+const talleres = computed(() =>
+  todosLosTalleres.value.filter((t) => t.estado_verificacion === filtroEstado.value),
+)
 
-function telefonoArtesano(taller: TallerAdmin): string | null {
-  if (typeof taller.artesano === 'object' && taller.artesano !== null) {
-    return taller.artesano.telefono
-  }
-  return taller.whatsapp ?? null
-}
+// Diálogo de rechazo con motivo obligatorio
+const tallerPorRechazar = ref<TallerAdmin | null>(null)
+const motivoRechazo = ref('')
+const errorMotivo = ref<string | null>(null)
 
 async function cargarTalleres() {
   cargando.value = true
@@ -64,10 +46,8 @@ async function cargarTalleres() {
   mensajeAccion.value = null
 
   try {
-    const datos = await get<TallerAdmin[]>('/admin/productores', {
-      estado: filtroEstado.value,
-    })
-    talleres.value = datos
+    const datos = await get<TallerAdmin[]>('/admin/productores')
+    todosLosTalleres.value = datos
   } catch (err) {
     error.value = err
   } finally {
@@ -75,13 +55,52 @@ async function cargarTalleres() {
   }
 }
 
-async function cambiarEstadoTaller(id: number, nuevoEstado: 'aprobado' | 'rechazado') {
-  procesandoId.value = id
+async function aprobarTaller(taller: TallerAdmin) {
+  procesandoId.value = taller.id
   mensajeAccion.value = null
 
   try {
-    await patch(`/admin/productores/${id}`, { estado: nuevoEstado })
-    mensajeAccion.value = `Taller ${nuevoEstado === 'aprobado' ? 'aprobado' : 'rechazado'} correctamente.`
+    const decision: DecisionTaller = { estado: 'aprobado' }
+    await patch(`/admin/productores/${taller.id}`, decision)
+    mensajeAccion.value = `Taller "${taller.nombre_taller}" aprobado correctamente.`
+    await cargarTalleres()
+  } catch (err) {
+    error.value = err
+  } finally {
+    procesandoId.value = null
+  }
+}
+
+function abrirDialogoRechazo(taller: TallerAdmin) {
+  tallerPorRechazar.value = taller
+  motivoRechazo.value = ''
+  errorMotivo.value = null
+}
+
+async function confirmarRechazo() {
+  if (!tallerPorRechazar.value) return
+  if (!motivoRechazo.value.trim()) {
+    errorMotivo.value = 'El motivo del rechazo es obligatorio para orientar al artesano.'
+    return
+  }
+  if (motivoRechazo.value.trim().length > 500) {
+    errorMotivo.value = 'El motivo no puede exceder los 500 caracteres.'
+    return
+  }
+
+  const id = tallerPorRechazar.value.id
+  const nombre = tallerPorRechazar.value.nombre_taller
+  procesandoId.value = id
+  errorMotivo.value = null
+
+  try {
+    const decision: DecisionTaller = {
+      estado: 'rechazado',
+      motivo: motivoRechazo.value.trim(),
+    }
+    await patch(`/admin/productores/${id}`, decision)
+    mensajeAccion.value = `Taller "${nombre}" rechazado con su respectivo motivo.`
+    tallerPorRechazar.value = null
     await cargarTalleres()
   } catch (err) {
     error.value = err
@@ -96,59 +115,41 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-talleres contenedor">
-    <header class="admin-talleres__cabecera">
-      <div class="admin-talleres__titular">
-        <h1 class="admin-talleres__titulo">Revisión de Talleres</h1>
-        <p class="admin-talleres__subtitulo">
-          Verifica y aprueba los talleres artesanales registrados para que aparezcan en el
-          catálogo público.
-        </p>
-      </div>
-
-      <!-- Selector de estado -->
+  <LayoutPanel
+    antetitulo="Administración"
+    titulo="Revisión de Talleres"
+    descripcion="Verifica y aprueba los talleres artesanales para que sus piezas aparezcan en el catálogo público."
+    :pestanas="pestanasAdmin"
+  >
+    <!-- Selector de estado tipo píldora -->
+    <div class="admin-talleres__filtros-estado">
       <div class="admin-talleres__pestanas" role="tablist" aria-label="Filtrar por estado">
         <button
           type="button"
           class="admin-talleres__pestana"
           :class="{ 'admin-talleres__pestana--activa': filtroEstado === 'pendiente' }"
-          @click="
-            () => {
-              filtroEstado = 'pendiente'
-              void cargarTalleres()
-            }
-          "
+          @click="filtroEstado = 'pendiente'"
         >
-          Pendientes
+          Pendientes ({{ conteoPendientes }})
         </button>
         <button
           type="button"
           class="admin-talleres__pestana"
           :class="{ 'admin-talleres__pestana--activa': filtroEstado === 'aprobado' }"
-          @click="
-            () => {
-              filtroEstado = 'aprobado'
-              void cargarTalleres()
-            }
-          "
+          @click="filtroEstado = 'aprobado'"
         >
-          Aprobados
+          Aprobados ({{ conteoAprobados }})
         </button>
         <button
           type="button"
           class="admin-talleres__pestana"
           :class="{ 'admin-talleres__pestana--activa': filtroEstado === 'rechazado' }"
-          @click="
-            () => {
-              filtroEstado = 'rechazado'
-              void cargarTalleres()
-            }
-          "
+          @click="filtroEstado = 'rechazado'"
         >
-          Rechazados
+          Rechazados ({{ conteoRechazados }})
         </button>
       </div>
-    </header>
+    </div>
 
     <!-- Notificación de acción -->
     <div v-if="mensajeAccion" class="admin-talleres__alerta" role="status">
@@ -193,7 +194,7 @@ onMounted(() => {
             <img
               v-if="taller.foto_url"
               :src="taller.foto_url"
-              :alt="nombreArtesano(taller)"
+              :alt="taller.artesano.nombre"
             />
             <span v-else class="taller-card__avatar-letra">
               {{ taller.nombre_taller.charAt(0) }}
@@ -215,19 +216,27 @@ onMounted(() => {
 
             <h2 class="taller-card__nombre">{{ taller.nombre_taller }}</h2>
             <p class="taller-card__artesano">
-              Artesano(a): <strong>{{ nombreArtesano(taller) }}</strong>
+              Artesano(a): <strong>{{ taller.artesano.nombre }}</strong>
             </p>
 
             <p v-if="taller.biografia" class="taller-card__bio">
               {{ taller.biografia }}
             </p>
 
+            <div v-if="taller.motivo_rechazo" class="taller-card__motivo-rechazo">
+              <span class="taller-card__motivo-titulo">Motivo de rechazo actual:</span>
+              <p>{{ taller.motivo_rechazo }}</p>
+            </div>
+
             <div class="taller-card__contacto">
-              <span v-if="emailArtesano(taller)">
-                Email: <strong>{{ emailArtesano(taller) }}</strong>
+              <span v-if="taller.artesano.email">
+                Email: <strong>{{ taller.artesano.email }}</strong>
               </span>
-              <span v-if="telefonoArtesano(taller)">
-                Teléfono: <strong>{{ telefonoArtesano(taller) }}</strong>
+              <span v-if="taller.artesano.telefono || taller.whatsapp">
+                Teléfono: <strong>{{ taller.artesano.telefono || taller.whatsapp }}</strong>
+              </span>
+              <span v-if="taller.direccion_taller">
+                Ubicación: <strong>{{ taller.direccion_taller }} (C.P. {{ taller.cp_taller }})</strong>
               </span>
               <span>
                 Piezas registradas: <strong>{{ taller.total_productos }}</strong>
@@ -243,52 +252,62 @@ onMounted(() => {
             variante="comprar"
             :disabled="procesandoId === taller.id"
             :cargando="procesandoId === taller.id"
-            @click="cambiarEstadoTaller(taller.id, 'aprobado')"
+            @click="aprobarTaller(taller)"
           >
             Aprobar taller
           </BotonBase>
 
           <BotonBase
             v-if="taller.estado_verificacion !== 'rechazado'"
-            variante="secundario"
+            variante="peligro"
             :disabled="procesandoId === taller.id"
-            @click="cambiarEstadoTaller(taller.id, 'rechazado')"
+            @click="abrirDialogoRechazo(taller)"
           >
             Rechazar
           </BotonBase>
         </div>
       </article>
     </div>
-  </div>
+
+    <!-- Diálogo accesible de rechazo con motivo obligatorio -->
+    <DialogoConfirmar
+      :abierto="tallerPorRechazar !== null"
+      titulo="Rechazar solicitud de taller"
+      texto-confirmar="Confirmar rechazo"
+      texto-cancelar="Cancelar"
+      peligroso
+      :cargando="procesandoId !== null"
+      @confirmar="confirmarRechazo"
+      @cancelar="tallerPorRechazar = null"
+    >
+      <div class="dialogo-rechazo">
+        <p class="dialogo-rechazo__instruccion">
+          Estás por rechazar el taller
+          <strong>"{{ tallerPorRechazar?.nombre_taller }}"</strong>.
+          Indica el motivo claramente para que el artesano pueda resolverlo desde su panel:
+        </p>
+        <textarea
+          v-model="motivoRechazo"
+          rows="4"
+          maxlength="500"
+          placeholder="Ejemplo: Las fotos adjuntas no muestran las piezas ni el espacio del taller artesanal..."
+          class="dialogo-rechazo__textarea"
+        />
+        <div class="dialogo-rechazo__contador">
+          {{ motivoRechazo.length }} / 500 caracteres
+        </div>
+        <p v-if="errorMotivo" class="dialogo-rechazo__error" role="alert">
+          {{ errorMotivo }}
+        </p>
+      </div>
+    </DialogoConfirmar>
+  </LayoutPanel>
 </template>
 
 <style scoped>
-.admin-talleres {
-  padding-block: var(--space-6);
-}
-
-.admin-talleres__cabecera {
+.admin-talleres__filtros-estado {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
   margin-bottom: var(--space-5);
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.admin-talleres__titular {
-  max-width: 580px;
-}
-
-.admin-talleres__titulo {
-  font-size: var(--texto-2xl);
-  color: var(--color-texto);
-  margin-bottom: var(--space-1);
-}
-
-.admin-talleres__subtitulo {
-  font-size: var(--texto-sm);
-  color: var(--color-texto-secundario);
 }
 
 .admin-talleres__pestanas {
@@ -304,10 +323,12 @@ onMounted(() => {
   border: none;
   border-radius: var(--radius-pildora);
   background: transparent;
+  font-family: var(--font-texto);
   font-size: var(--texto-sm);
   font-weight: 600;
   color: var(--color-texto-secundario);
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .admin-talleres__pestana--activa {
@@ -414,7 +435,7 @@ onMounted(() => {
 .taller-card__comunidad {
   font-size: var(--texto-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--espaciado-mayusculas);
   font-weight: 600;
   color: var(--color-primario);
 }
@@ -460,6 +481,23 @@ onMounted(() => {
   max-width: 600px;
 }
 
+.taller-card__motivo-rechazo {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-error-fondo);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-control);
+  font-size: var(--texto-xs);
+  color: var(--color-texto);
+}
+
+.taller-card__motivo-titulo {
+  font-weight: 600;
+  color: var(--color-error);
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
 .taller-card__contacto {
   display: flex;
   gap: var(--space-3);
@@ -474,6 +512,48 @@ onMounted(() => {
   gap: var(--space-2);
   flex-shrink: 0;
   align-items: center;
+}
+
+/* Diálogo de rechazo */
+.dialogo-rechazo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dialogo-rechazo__instruccion {
+  font-size: var(--texto-sm);
+  color: var(--color-texto-secundario);
+  line-height: 1.4;
+}
+
+.dialogo-rechazo__textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-linea);
+  border-radius: var(--radius-control);
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: var(--font-texto);
+  font-size: var(--texto-sm);
+  resize: vertical;
+}
+
+.dialogo-rechazo__textarea:focus {
+  outline: 2px solid var(--color-foco);
+  outline-offset: 1px;
+}
+
+.dialogo-rechazo__contador {
+  font-size: var(--texto-2xs);
+  color: var(--color-texto-secundario);
+  text-align: right;
+}
+
+.dialogo-rechazo__error {
+  font-size: var(--texto-xs);
+  color: var(--color-error);
+  font-weight: 600;
 }
 
 @media (max-width: 48rem) {
