@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ErrorApi, get, post, put } from '@/shared/api/cliente'
-import type { Comunidad, EstadoVerificacion } from '@/shared/api/tipos'
+import type {
+  Comunidad,
+  EstadoVerificacion,
+  MiTaller,
+  MiTallerActualizado,
+  TallerEntrada,
+} from '@/shared/api/tipos'
 import BotonBase from '@/shared/components/BotonBase.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
+import LayoutPanel from '@/shared/components/LayoutPanel.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
 import { useSesionStore } from '@/stores/sesion'
-import NavegacionTaller from '../components/NavegacionTaller.vue'
-import {
-  ETIQUETA_VERIFICACION,
-  formatearFecha,
-  type MiTaller,
-  type TallerEntrada,
-} from '../tipos'
+import { ETIQUETA_VERIFICACION, formatearFecha, pestanasArtesano } from '../tipos'
 
 const sesion = useSesionStore()
+const pestanas = computed(() => pestanasArtesano(sesion.tieneTaller))
 
 const cargando = ref(true)
 const errorCarga = ref<unknown>(null)
@@ -38,7 +40,7 @@ const MENSAJE_ESTADO: Record<EstadoVerificacion, string> = {
     'Tu taller está pendiente de aprobación. Puedes preparar tus productos y entregas, pero aún no salen en el catálogo público.',
   aprobado: 'Tu taller está aprobado y tus productos activos son visibles en el catálogo público.',
   rechazado:
-    'Tu solicitud fue rechazada. Puedes actualizar la información del taller o comunicarte con administración.',
+    'Tu solicitud fue rechazada. Al editar y guardar los datos de tu taller volverá a revisión para ser evaluado nuevamente.',
 }
 
 const claseEstado = computed(() => {
@@ -112,12 +114,20 @@ async function guardar() {
   guardando.value = true
   try {
     if (taller.value) {
-      const actualizado = await put<MiTaller>('/mi-taller', cuerpo)
+      const estadoAnterior = taller.value.estado_verificacion
+      const actualizado = await put<MiTallerActualizado>('/mi-taller', cuerpo)
       taller.value = actualizado
       llenarFormulario(actualizado)
-      // Refresca el perfil para mantener sincronizado el nombre del taller en el menú global
+      // Refresca el perfil para mantener sincronizado el nombre y estado del taller en el menú global
       await sesion.cargarPerfil()
-      aviso.value = 'Cambios guardados.'
+      if (actualizado.volvio_a_revision) {
+        aviso.value =
+          estadoAnterior === 'rechazado'
+            ? 'Cambios guardados. Tu taller volvió a revisión para ser evaluado nuevamente.'
+            : 'Tu taller volvió a revisión porque cambiaste el nombre o la comunidad'
+      } else {
+        aviso.value = 'Cambios guardados.'
+      }
     } else {
       const creado = await post<MiTaller>('/mi-taller', cuerpo)
       taller.value = creado
@@ -138,16 +148,17 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="panel">
-    <NavegacionTaller
-      :titulo="taller ? 'Mi taller' : 'Abrir mi taller'"
-      :subtitulo="
-        taller
-          ? 'Consulta el estado de verificación y mantén actualizados los datos de tu taller.'
-          : 'Registra tu taller para publicar artesanías y gestionar pedidos.'
-      "
-    />
-
+  <LayoutPanel
+    antetitulo="Panel del artesano"
+    :titulo="taller ? 'Mi taller' : 'Abrir mi taller'"
+    :descripcion="
+      taller
+        ? 'Consulta el estado de verificación y mantén actualizados los datos de tu taller.'
+        : 'Registra tu taller para publicar artesanías y gestionar pedidos.'
+    "
+    :pestanas="pestanas"
+    etiqueta-pestanas="Secciones del taller"
+  >
     <EstadoCarga v-if="cargando" />
     <MensajeError v-else-if="errorCarga" :error="errorCarga" reintentable @reintentar="cargar" />
 
@@ -162,6 +173,12 @@ onMounted(cargar)
           <span class="estado__fecha">Registrado el {{ formatearFecha(taller.created_at) }}</span>
         </div>
         <p class="estado__texto">{{ MENSAJE_ESTADO[taller.estado_verificacion] }}</p>
+        <p
+          v-if="taller.estado_verificacion === 'rechazado' && taller.motivo_rechazo"
+          class="estado__motivo"
+        >
+          <strong>Motivo del rechazo:</strong> {{ taller.motivo_rechazo }}
+        </p>
       </article>
 
       <article v-else class="estado estado--pendiente">
@@ -295,16 +312,10 @@ onMounted(cargar)
         </div>
       </form>
     </div>
-  </section>
+  </LayoutPanel>
 </template>
 
 <style scoped>
-.panel {
-  max-width: var(--ancho-maximo);
-  margin: 0 auto;
-  padding: var(--space-5) var(--margen-lateral);
-}
-
 .contenido-taller {
   display: flex;
   flex-direction: column;
@@ -313,7 +324,7 @@ onMounted(cargar)
 
 .vacio {
   padding: var(--space-6) var(--space-4);
-  border: 1px dashed var(--color-linea);
+  border: var(--borde-fino) dashed var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   color: var(--color-texto-secundario);
@@ -325,7 +336,7 @@ onMounted(cargar)
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
@@ -371,12 +382,21 @@ onMounted(cargar)
   font-size: var(--texto-sm);
 }
 
+.estado__motivo {
+  padding: var(--space-3);
+  border: var(--borde-fino) solid var(--color-error);
+  border-radius: var(--radius-control);
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font-size: var(--texto-sm);
+}
+
 .resumen {
   display: flex;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
@@ -431,7 +451,7 @@ onMounted(cargar)
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
@@ -450,6 +470,7 @@ onMounted(cargar)
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .campo--ancho {
@@ -462,9 +483,11 @@ onMounted(cargar)
 }
 
 .campo__input {
+  width: 100%;
+  min-width: 0;
   min-height: var(--alto-control);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-fondo);
   font-size: var(--texto-base);
@@ -477,7 +500,7 @@ onMounted(cargar)
 
 .aviso {
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-etiqueta-fondo);
   color: var(--color-etiqueta-texto);
