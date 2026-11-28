@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { del, enviarFormulario, get, patch } from '@/shared/api/cliente'
-import type { ImagenProducto } from '@/shared/api/tipos'
+import type { ImagenProducto, MiProducto } from '@/shared/api/tipos'
 import BotonBase from '@/shared/components/BotonBase.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
-import type { MiProductoDetalle } from '../tipos'
 
 // Límites impuestos por el endpoint multipart de Supabase Storage en la API
 const FORMATOS_PERMITIDOS = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -39,8 +38,8 @@ function seleccionarArchivo() {
 
 // Se vuelve a consultar el detalle tras subir o borrar porque la API reordena y promueve la principal
 async function recargarImagenes(): Promise<ImagenProducto[]> {
-  const detalle = await get<MiProductoDetalle>(`/mi-taller/productos/${props.productoId}`)
-  return detalle.imagenes
+  const detalle = await get<MiProducto>(`/mi-taller/productos/${props.productoId}`)
+  return detalle.imagenes ?? []
 }
 
 async function alElegirArchivo(evento: Event) {
@@ -184,7 +183,7 @@ async function eliminarImagen(imagenId: number) {
             <p class="foto__pregunta">¿Eliminar esta foto?</p>
             <div class="foto__confirmacion">
               <BotonBase
-                variante="comprar"
+                variante="peligro"
                 bloque
                 :cargando="procesandoId === img.id"
                 :disabled="procesandoId !== null || subiendo"
@@ -224,7 +223,7 @@ async function eliminarImagen(imagenId: number) {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-fondo);
 }
@@ -249,7 +248,7 @@ async function eliminarImagen(imagenId: number) {
 
 .gestor__aviso {
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-etiqueta-fondo);
   color: var(--color-etiqueta-texto);
@@ -259,7 +258,7 @@ async function eliminarImagen(imagenId: number) {
 
 .gestor__vacio {
   padding: var(--space-5) var(--space-4);
-  border: 1px dashed var(--color-linea);
+  border: var(--borde-fino) dashed var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   color: var(--color-texto-secundario);
@@ -281,7 +280,7 @@ async function eliminarImagen(imagenId: number) {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }

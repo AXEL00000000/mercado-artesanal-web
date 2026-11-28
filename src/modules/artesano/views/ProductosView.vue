@@ -1,21 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { get, patch, post, put } from '@/shared/api/cliente'
-import type { Categoria, ImagenProducto, ModoVenta } from '@/shared/api/tipos'
+import { del, get, patch, post, put } from '@/shared/api/cliente'
+import type { Categoria, ImagenProducto, MiProducto, ModoVenta } from '@/shared/api/tipos'
 import BotonBase from '@/shared/components/BotonBase.vue'
+import DialogoConfirmar from '@/shared/components/DialogoConfirmar.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
 import EtiquetaVenta from '@/shared/components/EtiquetaVenta.vue'
+import InterruptorBase from '@/shared/components/InterruptorBase.vue'
+import LayoutPanel from '@/shared/components/LayoutPanel.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
+import PanelLateral from '@/shared/components/PanelLateral.vue'
 import { formatearPrecio } from '@/shared/utils/formato'
+import { useSesionStore } from '@/stores/sesion'
 import GestorImagenesProducto from '../components/GestorImagenesProducto.vue'
-import NavegacionTaller from '../components/NavegacionTaller.vue'
-import type { MiProductoDetalle, MiProductoLista, ProductoEntrada } from '../tipos'
+import { pestanasArtesano, type ProductoEntrada } from '../tipos'
 
 type FiltroEstado = 'todos' | 'activos' | 'inactivos'
 
+const sesion = useSesionStore()
+const pestanas = computed(() => pestanasArtesano(sesion.tieneTaller))
+
 const cargando = ref(true)
 const errorCarga = ref<unknown>(null)
-const productos = ref<MiProductoLista[]>([])
+const productos = ref<MiProducto[]>([])
 const categorias = ref<Categoria[]>([])
 
 const filtro = ref<FiltroEstado>('todos')
@@ -27,6 +34,7 @@ const formularioAbierto = ref(false)
 const editandoId = ref<number | null>(null)
 const guardando = ref(false)
 const errorFormulario = ref<unknown>(null)
+const formProducto = ref<HTMLFormElement | null>(null)
 
 const nombre = ref('')
 const categoriaId = ref<number | ''>('')
@@ -46,6 +54,9 @@ const cargandoFotos = ref(false)
 const errorFotos = ref<unknown>(null)
 const imagenesActivas = ref<ImagenProducto[]>([])
 
+const productoPorEliminar = ref<MiProducto | null>(null)
+const eliminando = ref(false)
+
 const conteos = computed(() => {
   const activos = productos.value.filter((p) => p.activo).length
   const inactivos = productos.value.length - activos
@@ -58,27 +69,17 @@ const productosFiltrados = computed(() => {
   return productos.value
 })
 
-// Adapta la respuesta detallada (crear/editar/activar) al formato compacto del listado
-function aItemLista(detalle: MiProductoDetalle): MiProductoLista {
-  const principal = detalle.imagenes.find((img) => img.es_principal) ?? detalle.imagenes[0]
-  return {
-    id: detalle.id,
-    nombre: detalle.nombre,
-    slug: detalle.slug,
-    descripcion: detalle.descripcion,
-    modo_venta: detalle.modo_venta,
-    precio: detalle.precio,
-    stock: detalle.stock,
-    material: detalle.material,
-    tecnica: detalle.tecnica,
-    peso_g: detalle.peso_g,
-    medidas_cm: detalle.medidas_cm,
-    activo: detalle.activo,
-    categoria: detalle.categoria,
-    imagen: principal?.url ?? null,
-    created_at: detalle.created_at,
-    updated_at: detalle.updated_at,
-  }
+const tituloEliminar = computed(() =>
+  productoPorEliminar.value
+    ? `¿Eliminar "${productoPorEliminar.value.nombre}"?`
+    : '¿Eliminar producto?',
+)
+
+// Sincroniza la miniatura `imagen` cuando POST/PUT/PATCH responden con `imagenes[]`
+function normalizarProducto(producto: MiProducto): MiProducto {
+  if (!producto.imagenes) return producto
+  const principal = producto.imagenes.find((img) => img.es_principal) ?? producto.imagenes[0]
+  return { ...producto, imagen: principal?.url ?? null }
 }
 
 function textoOpcional(valor: number | null): string {
@@ -102,6 +103,14 @@ function limpiarFormulario() {
   errorFormulario.value = null
 }
 
+function alCerrarPanel() {
+  const editandoAnterior = editandoId.value
+  limpiarFormulario()
+  if (editandoAnterior !== null && productoFotosId.value === editandoAnterior) {
+    productoFotosId.value = null
+  }
+}
+
 function abrirNuevo() {
   limpiarFormulario()
   productoFotosId.value = null
@@ -109,7 +118,7 @@ function abrirNuevo() {
   aviso.value = ''
 }
 
-function abrirEdicion(producto: MiProductoLista) {
+function abrirEdicion(producto: MiProducto) {
   editandoId.value = producto.id
   nombre.value = producto.nombre
   categoriaId.value = producto.categoria.id
@@ -131,7 +140,11 @@ function abrirEdicion(producto: MiProductoLista) {
 
 function cerrarFormulario() {
   formularioAbierto.value = false
-  limpiarFormulario()
+  alCerrarPanel()
+}
+
+function enviarFormularioProducto() {
+  formProducto.value?.requestSubmit()
 }
 
 async function abrirFotos(productoId: number, mantenerAbierto = false) {
@@ -146,8 +159,8 @@ async function abrirFotos(productoId: number, mantenerAbierto = false) {
   errorFotos.value = null
   imagenesActivas.value = []
   try {
-    const detalle = await get<MiProductoDetalle>(`/mi-taller/productos/${productoId}`)
-    imagenesActivas.value = detalle.imagenes
+    const detalle = await get<MiProducto>(`/mi-taller/productos/${productoId}`)
+    imagenesActivas.value = detalle.imagenes ?? []
   } catch (err) {
     errorFotos.value = err
   } finally {
@@ -174,7 +187,7 @@ async function cargar() {
   errorCarga.value = null
   try {
     const [listaProductos, listaCategorias] = await Promise.all([
-      get<MiProductoLista[]>('/mi-taller/productos'),
+      get<MiProducto[]>('/mi-taller/productos'),
       get<Categoria[]>('/categorias'),
     ])
     productos.value = listaProductos
@@ -227,24 +240,20 @@ async function guardar() {
   guardando.value = true
   try {
     if (editandoId.value !== null) {
-      const actualizado = await put<MiProductoDetalle>(
-        `/mi-taller/productos/${editandoId.value}`,
-        cuerpo,
-      )
-      const item = aItemLista(actualizado)
+      const actualizado = await put<MiProducto>(`/mi-taller/productos/${editandoId.value}`, cuerpo)
+      const item = normalizarProducto(actualizado)
       productos.value = productos.value.map((p) => (p.id === item.id ? item : p))
-      imagenesActivas.value = actualizado.imagenes
+      imagenesActivas.value = actualizado.imagenes ?? []
       aviso.value = `"${item.nombre}" actualizado.`
       cerrarFormulario()
-      productoFotosId.value = item.id
     } else {
-      const creado = await post<MiProductoDetalle>('/mi-taller/productos', cuerpo)
-      const item = aItemLista(creado)
+      const creado = await post<MiProducto>('/mi-taller/productos', cuerpo)
+      const item = normalizarProducto(creado)
       productos.value = [item, ...productos.value]
       if (filtro.value === 'inactivos') filtro.value = 'todos'
       cerrarFormulario()
       productoFotosId.value = item.id
-      imagenesActivas.value = creado.imagenes
+      imagenesActivas.value = creado.imagenes ?? []
       aviso.value = `"${item.nombre}" creado. Ya puedes subir sus fotos.`
     }
   } catch (err) {
@@ -254,26 +263,63 @@ async function guardar() {
   }
 }
 
-async function alternarActivo(producto: MiProductoLista) {
-  if (alternandoId.value !== null) return
+async function cambiarVisibilidad(producto: MiProducto, visible: boolean) {
+  if (alternandoId.value !== null || eliminando.value) return
+  const anterior = producto.activo
   alternandoId.value = producto.id
   errorLista.value = null
   aviso.value = ''
+  // Actualización optimista para mantener sincronizado el modelo del InterruptorBase
+  productos.value = productos.value.map((p) =>
+    p.id === producto.id ? { ...p, activo: visible } : p,
+  )
   try {
-    const actualizado = await patch<MiProductoDetalle>(`/mi-taller/productos/${producto.id}`, {
-      activo: !producto.activo,
+    const actualizado = await patch<MiProducto>(`/mi-taller/productos/${producto.id}`, {
+      activo: visible,
     })
-    const item = aItemLista(actualizado)
+    const item = normalizarProducto(actualizado)
     productos.value = productos.value.map((p) => (p.id === item.id ? item : p))
-    aviso.value = item.activo ? `"${item.nombre}" activado.` : `"${item.nombre}" desactivado.`
+    aviso.value = item.activo
+      ? `"${item.nombre}" visible en el catálogo.`
+      : `"${item.nombre}" oculto del catálogo.`
   } catch (err) {
+    productos.value = productos.value.map((p) =>
+      p.id === producto.id ? { ...p, activo: anterior } : p,
+    )
     errorLista.value = err
   } finally {
     alternandoId.value = null
   }
 }
 
-function resumenMedidas(producto: MiProductoLista): string {
+async function confirmarEliminacion() {
+  const objetivo = productoPorEliminar.value
+  if (!objetivo || eliminando.value) return
+  eliminando.value = true
+  errorLista.value = null
+  aviso.value = ''
+  try {
+    // Borrado lógico en el backend: responde 204 sin cuerpo y conserva pedidos previos
+    await del(`/mi-taller/productos/${objetivo.id}`)
+    productos.value = productos.value.filter((p) => p.id !== objetivo.id)
+    if (productoFotosId.value === objetivo.id) {
+      productoFotosId.value = null
+      imagenesActivas.value = []
+    }
+    if (editandoId.value === objetivo.id) {
+      cerrarFormulario()
+    }
+    productoPorEliminar.value = null
+    aviso.value = `"${objetivo.nombre}" eliminado.`
+  } catch (err) {
+    errorLista.value = err
+    productoPorEliminar.value = null
+  } finally {
+    eliminando.value = false
+  }
+}
+
+function resumenMedidas(producto: MiProducto): string {
   const partes: string[] = []
   if (producto.material) partes.push(producto.material)
   if (producto.tecnica) partes.push(producto.tecnica)
@@ -289,11 +335,16 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="panel">
-    <NavegacionTaller
-      titulo="Mis productos"
-      subtitulo="Administra tu catálogo, precios, existencia, medidas de envío y fotografías."
-    />
+  <LayoutPanel
+    antetitulo="Panel del artesano"
+    titulo="Mis productos"
+    descripcion="Administra tu catálogo, precios, existencia, medidas de envío y fotografías."
+    :pestanas="pestanas"
+    etiqueta-pestanas="Secciones del taller"
+  >
+    <template v-if="!cargando && !errorCarga" #acciones>
+      <BotonBase variante="comprar" @click="abrirNuevo">Nuevo producto</BotonBase>
+    </template>
 
     <EstadoCarga v-if="cargando" />
     <MensajeError v-else-if="errorCarga" :error="errorCarga" reintentable @reintentar="cargar" />
@@ -315,7 +366,7 @@ onMounted(cargar)
             :class="{ 'filtro--activo': filtro === 'activos' }"
             @click="filtro = 'activos'"
           >
-            Activos ({{ conteos.activos }})
+            Visibles ({{ conteos.activos }})
           </button>
           <button
             type="button"
@@ -323,24 +374,126 @@ onMounted(cargar)
             :class="{ 'filtro--activo': filtro === 'inactivos' }"
             @click="filtro = 'inactivos'"
           >
-            Inactivos ({{ conteos.inactivos }})
+            Ocultos ({{ conteos.inactivos }})
           </button>
         </div>
-
-        <BotonBase v-if="!formularioAbierto" variante="comprar" @click="abrirNuevo">
-          Nuevo producto
-        </BotonBase>
       </div>
 
       <p v-if="aviso" class="aviso" role="status">{{ aviso }}</p>
       <MensajeError v-if="errorLista" :error="errorLista" />
 
-      <form v-if="formularioAbierto" class="formulario" @submit.prevent="guardar">
-        <div class="formulario__cabecera">
-          <h2>{{ editandoId !== null ? 'Editar producto' : 'Nuevo producto' }}</h2>
-          <BotonBase variante="secundario" @click="cerrarFormulario">Cancelar</BotonBase>
-        </div>
+      <div v-if="productosFiltrados.length === 0" class="vacio">
+        <p v-if="productos.length === 0">Aún no tienes productos registrados en tu taller.</p>
+        <p v-else>No hay productos en este filtro.</p>
+        <BotonBase v-if="productos.length === 0" variante="comprar" @click="abrirNuevo">
+          Crear primer producto
+        </BotonBase>
+      </div>
 
+      <ul v-else class="lista">
+        <li
+          v-for="producto in productosFiltrados"
+          :key="producto.id"
+          class="tarjeta"
+          :class="{ 'tarjeta--inactiva': !producto.activo }"
+        >
+          <div class="tarjeta__principal">
+            <div class="tarjeta__foto">
+              <img v-if="producto.imagen" :src="producto.imagen" :alt="producto.nombre" />
+              <span v-else class="tarjeta__sin-foto">Sin foto</span>
+            </div>
+
+            <div class="tarjeta__info">
+              <div class="tarjeta__etiquetas">
+                <EtiquetaVenta :modo="producto.modo_venta" />
+                <span
+                  class="insignia"
+                  :class="producto.activo ? 'insignia--activa' : 'insignia--inactiva'"
+                >
+                  {{ producto.activo ? 'Visible' : 'Oculto' }}
+                </span>
+              </div>
+
+              <h2 class="tarjeta__nombre">{{ producto.nombre }}</h2>
+              <p class="tarjeta__categoria">{{ producto.categoria.nombre }}</p>
+
+              <p class="tarjeta__precio">
+                <strong>{{ formatearPrecio(producto.precio) }}</strong>
+                <span>
+                  &middot;
+                  {{
+                    producto.stock !== null ? `${producto.stock} en existencia` : 'Sobre pedido'
+                  }}
+                </span>
+              </p>
+
+              <p v-if="resumenMedidas(producto)" class="tarjeta__detalles">
+                {{ resumenMedidas(producto) }}
+              </p>
+            </div>
+          </div>
+
+          <div class="tarjeta__pie">
+            <InterruptorBase
+              :model-value="producto.activo"
+              etiqueta="Visible en el catálogo"
+              :disabled="alternandoId !== null || eliminando"
+              @update:model-value="(visible) => cambiarVisibilidad(producto, visible)"
+            />
+
+            <div class="tarjeta__acciones">
+              <BotonBase
+                variante="secundario"
+                :disabled="eliminando"
+                @click="abrirEdicion(producto)"
+              >
+                Editar
+              </BotonBase>
+              <BotonBase
+                variante="secundario"
+                :disabled="eliminando"
+                @click="abrirFotos(producto.id)"
+              >
+                {{
+                  productoFotosId === producto.id && !formularioAbierto ? 'Ocultar fotos' : 'Fotos'
+                }}
+              </BotonBase>
+              <BotonBase
+                variante="peligro"
+                :disabled="alternandoId !== null || eliminando"
+                @click="productoPorEliminar = producto"
+              >
+                Eliminar
+              </BotonBase>
+            </div>
+          </div>
+
+          <GestorImagenesProducto
+            v-if="productoFotosId === producto.id && !formularioAbierto"
+            :producto-id="producto.id"
+            :producto-nombre="producto.nombre"
+            :imagenes="imagenesActivas"
+            :cargando="cargandoFotos"
+            :error-carga="errorFotos"
+            @actualizadas="(imgs) => actualizarImagenes(producto.id, imgs)"
+            @reintentar="abrirFotos(producto.id, true)"
+          />
+        </li>
+      </ul>
+    </template>
+
+    <PanelLateral
+      v-model:abierto="formularioAbierto"
+      :titulo="editandoId !== null ? 'Editar producto' : 'Nuevo producto'"
+      :descripcion="
+        editandoId !== null
+          ? 'Actualiza los datos, medidas o fotos de tu pieza.'
+          : 'Completa los datos para agregar una pieza a tu taller.'
+      "
+      :bloqueado="guardando"
+      @cerrar="alCerrarPanel"
+    >
+      <form ref="formProducto" class="formulario-panel" @submit.prevent="guardar">
         <div class="rejilla">
           <div class="campo campo--ancho">
             <label for="prod_nombre" class="campo__etiqueta">Nombre del producto *</label>
@@ -355,7 +508,7 @@ onMounted(cargar)
             />
           </div>
 
-          <div class="campo">
+          <div class="campo campo--ancho">
             <label for="prod_categoria" class="campo__etiqueta">Categoría *</label>
             <select id="prod_categoria" v-model="categoriaId" required class="campo__input">
               <option disabled value="">Selecciona una categoría</option>
@@ -365,7 +518,7 @@ onMounted(cargar)
             </select>
           </div>
 
-          <div class="campo">
+          <div class="campo campo--ancho">
             <label for="prod_modo" class="campo__etiqueta">Modo de venta *</label>
             <select id="prod_modo" v-model="modoVenta" required class="campo__input">
               <option value="fijo">Precio fijo (compra en línea)</option>
@@ -391,7 +544,9 @@ onMounted(cargar)
 
           <div class="campo">
             <label for="prod_stock" class="campo__etiqueta">
-              {{ modoVenta === 'fijo' ? 'Existencia (piezas) *' : 'Existencia (vacío = sobre pedido)' }}
+              {{
+                modoVenta === 'fijo' ? 'Existencia (piezas) *' : 'Existencia (vacío = sobre pedido)'
+              }}
             </label>
             <input
               id="prod_stock"
@@ -424,7 +579,7 @@ onMounted(cargar)
               v-model="tecnica"
               type="text"
               maxlength="150"
-              placeholder="Ej. Bruñido con piedra de cuarzo"
+              placeholder="Ej. Bruñido con cuarzo"
               class="campo__input"
             />
           </div>
@@ -501,112 +656,44 @@ onMounted(cargar)
         </fieldset>
 
         <MensajeError v-if="errorFormulario" :error="errorFormulario" />
-
-        <div class="formulario__acciones">
-          <BotonBase type="submit" variante="comprar" :cargando="guardando">
-            {{ editandoId !== null ? 'Guardar cambios' : 'Crear producto' }}
-          </BotonBase>
-          <BotonBase variante="secundario" @click="cerrarFormulario">Cancelar</BotonBase>
-        </div>
-
-        <GestorImagenesProducto
-          v-if="editandoId !== null"
-          :producto-id="editandoId"
-          :producto-nombre="nombre || 'Producto'"
-          :imagenes="imagenesActivas"
-          :cargando="cargandoFotos"
-          :error-carga="errorFotos"
-          @actualizadas="(imgs) => actualizarImagenes(editandoId!, imgs)"
-          @reintentar="abrirFotos(editandoId!, true)"
-        />
       </form>
 
-      <div v-if="productosFiltrados.length === 0" class="vacio">
-        <p v-if="productos.length === 0">Aún no tienes productos registrados en tu taller.</p>
-        <p v-else>No hay productos en este filtro.</p>
-        <BotonBase v-if="productos.length === 0 && !formularioAbierto" variante="comprar" @click="abrirNuevo">
-          Crear primer producto
+      <GestorImagenesProducto
+        v-if="editandoId !== null"
+        class="panel-fotos"
+        :producto-id="editandoId"
+        :producto-nombre="nombre || 'Producto'"
+        :imagenes="imagenesActivas"
+        :cargando="cargandoFotos"
+        :error-carga="errorFotos"
+        @actualizadas="(imgs) => editandoId !== null && actualizarImagenes(editandoId, imgs)"
+        @reintentar="editandoId !== null && abrirFotos(editandoId, true)"
+      />
+
+      <template #pie>
+        <BotonBase variante="secundario" :disabled="guardando" @click="cerrarFormulario">
+          Cancelar
         </BotonBase>
-      </div>
+        <BotonBase variante="comprar" :cargando="guardando" @click="enviarFormularioProducto">
+          {{ editandoId !== null ? 'Guardar cambios' : 'Crear producto' }}
+        </BotonBase>
+      </template>
+    </PanelLateral>
 
-      <ul v-else class="lista">
-        <li
-          v-for="producto in productosFiltrados"
-          :key="producto.id"
-          class="tarjeta"
-          :class="{ 'tarjeta--inactiva': !producto.activo }"
-        >
-          <div class="tarjeta__principal">
-            <div class="tarjeta__foto">
-              <img v-if="producto.imagen" :src="producto.imagen" :alt="producto.nombre" />
-              <span v-else class="tarjeta__sin-foto">Sin foto</span>
-            </div>
-
-            <div class="tarjeta__info">
-              <div class="tarjeta__etiquetas">
-                <EtiquetaVenta :modo="producto.modo_venta" />
-                <span class="insignia" :class="producto.activo ? 'insignia--activa' : 'insignia--inactiva'">
-                  {{ producto.activo ? 'Activo' : 'Inactivo' }}
-                </span>
-              </div>
-
-              <h2 class="tarjeta__nombre">{{ producto.nombre }}</h2>
-              <p class="tarjeta__categoria">{{ producto.categoria.nombre }}</p>
-
-              <p class="tarjeta__precio">
-                <strong>{{ formatearPrecio(producto.precio) }}</strong>
-                <span>
-                  &middot;
-                  {{
-                    producto.stock !== null ? `${producto.stock} en existencia` : 'Sobre pedido'
-                  }}
-                </span>
-              </p>
-
-              <p v-if="resumenMedidas(producto)" class="tarjeta__detalles">
-                {{ resumenMedidas(producto) }}
-              </p>
-            </div>
-
-            <div class="tarjeta__acciones">
-              <BotonBase variante="secundario" @click="abrirEdicion(producto)">Editar</BotonBase>
-              <BotonBase variante="secundario" @click="abrirFotos(producto.id)">
-                {{ productoFotosId === producto.id && !formularioAbierto ? 'Ocultar fotos' : 'Fotos' }}
-              </BotonBase>
-              <BotonBase
-                variante="secundario"
-                :cargando="alternandoId === producto.id"
-                :disabled="alternandoId !== null"
-                @click="alternarActivo(producto)"
-              >
-                {{ producto.activo ? 'Desactivar' : 'Activar' }}
-              </BotonBase>
-            </div>
-          </div>
-
-          <GestorImagenesProducto
-            v-if="productoFotosId === producto.id && !formularioAbierto"
-            :producto-id="producto.id"
-            :producto-nombre="producto.nombre"
-            :imagenes="imagenesActivas"
-            :cargando="cargandoFotos"
-            :error-carga="errorFotos"
-            @actualizadas="(imgs) => actualizarImagenes(producto.id, imgs)"
-            @reintentar="abrirFotos(producto.id, true)"
-          />
-        </li>
-      </ul>
-    </template>
-  </section>
+    <DialogoConfirmar
+      :abierto="productoPorEliminar !== null"
+      :titulo="tituloEliminar"
+      mensaje="El producto desaparecerá de tu taller y del catálogo. Tus ventas anteriores se conservan."
+      texto-confirmar="Eliminar"
+      peligroso
+      :cargando="eliminando"
+      @confirmar="confirmarEliminacion"
+      @cancelar="productoPorEliminar = null"
+    />
+  </LayoutPanel>
 </template>
 
 <style scoped>
-.panel {
-  max-width: var(--ancho-maximo);
-  margin: 0 auto;
-  padding: var(--space-5) var(--margen-lateral);
-}
-
 .barra-acciones {
   display: flex;
   flex-wrap: wrap;
@@ -625,7 +712,7 @@ onMounted(cargar)
 .filtro {
   min-height: var(--alto-control);
   padding: 0 var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-pildora);
   background: var(--color-superficie);
   font-size: var(--texto-sm);
@@ -642,7 +729,7 @@ onMounted(cargar)
 .aviso {
   margin-bottom: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-etiqueta-fondo);
   color: var(--color-etiqueta-texto);
@@ -650,34 +737,20 @@ onMounted(cargar)
   font-weight: 600;
 }
 
-.formulario {
+.formulario-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  margin-bottom: var(--space-5);
-  padding: var(--space-5);
-  border: 1px solid var(--color-linea);
-  border-radius: var(--radius-control);
-  background: var(--color-superficie);
 }
 
-.formulario__cabecera {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
+.panel-fotos {
+  margin-top: var(--space-5);
 }
 
-.rejilla {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
+.rejilla,
 .rejilla-medidas {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
@@ -685,6 +758,7 @@ onMounted(cargar)
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .campo--ancho {
@@ -697,11 +771,13 @@ onMounted(cargar)
 }
 
 .campo__input {
+  width: 100%;
+  min-width: 0;
   min-height: var(--alto-control);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
-  background: var(--color-fondo);
+  background: var(--color-superficie);
   font-size: var(--texto-base);
 }
 
@@ -713,8 +789,9 @@ onMounted(cargar)
 .grupo-medidas {
   margin: 0;
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
+  background: var(--color-superficie);
 }
 
 .grupo-medidas__titulo {
@@ -724,19 +801,13 @@ onMounted(cargar)
   font-weight: 600;
 }
 
-.formulario__acciones {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
 .vacio {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-7) var(--space-4);
-  border: 1px dashed var(--color-linea);
+  border: var(--borde-fino) dashed var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   color: var(--color-texto-secundario);
@@ -757,7 +828,7 @@ onMounted(cargar)
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
@@ -768,7 +839,7 @@ onMounted(cargar)
 
 .tarjeta__principal {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: var(--space-4);
 }
@@ -856,14 +927,23 @@ onMounted(cargar)
   font-size: var(--texto-xs);
 }
 
+.tarjeta__pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--borde-fino) solid var(--color-linea);
+}
+
 .tarjeta__acciones {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  justify-content: flex-end;
 }
 
-@media (max-width: 48rem) {
+@media (max-width: 40rem) {
   .rejilla,
   .rejilla-medidas {
     grid-template-columns: 1fr;
@@ -879,8 +959,9 @@ onMounted(cargar)
     height: var(--space-7);
   }
 
-  .tarjeta__acciones {
-    justify-content: flex-start;
+  .tarjeta__pie {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

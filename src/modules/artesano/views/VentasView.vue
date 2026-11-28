@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { get, patch } from '@/shared/api/cliente'
+import type { EstadoPedido } from '@/shared/api/tipos'
 import BotonBase from '@/shared/components/BotonBase.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
+import LayoutPanel from '@/shared/components/LayoutPanel.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
 import { formatearPrecio } from '@/shared/utils/formato'
-import NavegacionTaller from '../components/NavegacionTaller.vue'
+import { useSesionStore } from '@/stores/sesion'
 import {
   ETIQUETA_ENTREGA,
   ETIQUETA_ESTADO_PAGO,
   ETIQUETA_ESTADO_PEDIDO,
   formatearFechaHora,
+  pestanasArtesano,
   type CambioEstadoPedido,
-  type EstadoPedido,
   type PedidoEnvio,
   type PedidoTaller,
 } from '../tipos'
+
+const sesion = useSesionStore()
+const pestanas = computed(() => pestanasArtesano(sesion.tieneTaller))
 
 type FiltroPedido = '' | EstadoPedido
 type AccionPendiente = 'enviado' | 'entregado' | 'cancelado'
@@ -131,11 +136,13 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="panel">
-    <NavegacionTaller
-      titulo="Ventas"
-      subtitulo="Consulta los pedidos de tu taller, registra guías de envío y actualiza su estado."
-    />
+  <LayoutPanel
+    antetitulo="Panel del artesano"
+    titulo="Ventas"
+    descripcion="Consulta los pedidos de tu taller, registra guías de envío y actualiza su estado."
+    :pestanas="pestanas"
+    etiqueta-pestanas="Secciones del taller"
+  >
 
     <div class="filtros" role="group" aria-label="Filtrar pedidos por estado">
       <button
@@ -353,16 +360,10 @@ onMounted(cargar)
         </div>
       </li>
     </ul>
-  </section>
+  </LayoutPanel>
 </template>
 
 <style scoped>
-.panel {
-  max-width: var(--ancho-maximo);
-  margin: 0 auto;
-  padding: var(--space-5) var(--margen-lateral);
-}
-
 .filtros {
   display: flex;
   flex-wrap: wrap;
@@ -373,7 +374,7 @@ onMounted(cargar)
 .filtro {
   min-height: var(--alto-control);
   padding: 0 var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-pildora);
   background: var(--color-superficie);
   font-size: var(--texto-sm);
@@ -390,7 +391,7 @@ onMounted(cargar)
 .aviso {
   margin-bottom: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-etiqueta-fondo);
   color: var(--color-etiqueta-texto);
@@ -400,7 +401,7 @@ onMounted(cargar)
 
 .vacio {
   padding: var(--space-7) var(--space-4);
-  border: 1px dashed var(--color-linea);
+  border: var(--borde-fino) dashed var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   color: var(--color-texto-secundario);
@@ -421,7 +422,7 @@ onMounted(cargar)
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
@@ -491,7 +492,7 @@ onMounted(cargar)
 .bloque h3 {
   color: var(--color-texto-secundario);
   font-size: var(--texto-xs);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--espaciado-mayusculas);
   text-transform: uppercase;
 }
 
@@ -571,7 +572,7 @@ onMounted(cargar)
   align-items: baseline;
   gap: var(--space-4);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--color-linea);
+  border-top: var(--borde-fino) solid var(--color-linea);
   font-size: var(--texto-sm);
 }
 
@@ -585,7 +586,7 @@ onMounted(cargar)
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-fondo);
 }
@@ -614,7 +615,7 @@ onMounted(cargar)
 .campo__input {
   min-height: var(--alto-control);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   font-size: var(--texto-base);

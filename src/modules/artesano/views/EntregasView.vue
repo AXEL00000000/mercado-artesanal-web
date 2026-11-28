@@ -2,13 +2,17 @@
 import { computed, onMounted, ref } from 'vue'
 import { del, get, post, put } from '@/shared/api/cliente'
 import BotonBase from '@/shared/components/BotonBase.vue'
+import DialogoConfirmar from '@/shared/components/DialogoConfirmar.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
+import InterruptorBase from '@/shared/components/InterruptorBase.vue'
+import LayoutPanel from '@/shared/components/LayoutPanel.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
 import { formatearPrecio } from '@/shared/utils/formato'
-import NavegacionTaller from '../components/NavegacionTaller.vue'
+import { useSesionStore } from '@/stores/sesion'
 import {
   DESCRIPCION_ENTREGA,
   ETIQUETA_ENTREGA,
+  pestanasArtesano,
   type OpcionEntrega,
   type OpcionEntregaCrear,
   type OpcionEntregaEditar,
@@ -16,6 +20,9 @@ import {
 } from '../tipos'
 
 const TODOS_LOS_TIPOS: TipoEntrega[] = ['envia', 'costo_fijo', 'recoger_taller']
+
+const sesion = useSesionStore()
+const pestanas = computed(() => pestanasArtesano(sesion.tieneTaller))
 
 const cargando = ref(true)
 const errorCarga = ref<unknown>(null)
@@ -34,7 +41,8 @@ const editCostoTexto = ref('')
 const editInstrucciones = ref('')
 const editActivo = ref(true)
 
-const confirmandoId = ref<number | null>(null)
+const opcionPorEliminar = ref<OpcionEntrega | null>(null)
+const eliminando = ref(false)
 const procesandoId = ref<number | null>(null)
 const errorTarjetaId = ref<number | null>(null)
 const errorTarjeta = ref<unknown>(null)
@@ -42,6 +50,12 @@ const errorTarjeta = ref<unknown>(null)
 // El backend permite como máximo una configuración por cada tipo de entrega
 const tiposDisponibles = computed(() =>
   TODOS_LOS_TIPOS.filter((tipo) => !opciones.value.some((opcion) => opcion.tipo === tipo)),
+)
+
+const tituloEliminar = computed(() =>
+  opcionPorEliminar.value
+    ? `¿Eliminar "${ETIQUETA_ENTREGA[opcionPorEliminar.value.tipo]}"?`
+    : '¿Eliminar opción de entrega?',
 )
 
 function sincronizarTipoNuevo() {
@@ -53,7 +67,6 @@ function sincronizarTipoNuevo() {
 }
 
 function abrirEdicion(opcion: OpcionEntrega) {
-  confirmandoId.value = null
   errorTarjetaId.value = null
   errorTarjeta.value = null
   editandoId.value = opcion.id
@@ -117,7 +130,7 @@ async function crearOpcion() {
 }
 
 async function guardarEdicion(opcion: OpcionEntrega) {
-  if (procesandoId.value !== null) return
+  if (procesandoId.value !== null || eliminando.value) return
   errorTarjetaId.value = opcion.id
   errorTarjeta.value = null
   aviso.value = ''
@@ -153,47 +166,55 @@ async function guardarEdicion(opcion: OpcionEntrega) {
   }
 }
 
-async function alternarActivo(opcion: OpcionEntrega) {
-  if (procesandoId.value !== null) return
+async function cambiarDisponibilidad(opcion: OpcionEntrega, disponible: boolean) {
+  if (procesandoId.value !== null || eliminando.value) return
+  const anterior = opcion.activo
   procesandoId.value = opcion.id
-  confirmandoId.value = null
   errorTarjetaId.value = opcion.id
   errorTarjeta.value = null
   aviso.value = ''
+  // Actualización optimista para mantener sincronizado el modelo del InterruptorBase
+  opciones.value = opciones.value.map((o) =>
+    o.id === opcion.id ? { ...o, activo: disponible } : o,
+  )
   try {
     const actualizada = await put<OpcionEntrega>(`/mi-taller/opciones-entrega/${opcion.id}`, {
-      activo: !opcion.activo,
+      activo: disponible,
     })
     opciones.value = opciones.value.map((o) => (o.id === actualizada.id ? actualizada : o))
     aviso.value = actualizada.activo
-      ? `"${ETIQUETA_ENTREGA[actualizada.tipo]}" activada.`
-      : `"${ETIQUETA_ENTREGA[actualizada.tipo]}" desactivada.`
+      ? `"${ETIQUETA_ENTREGA[actualizada.tipo]}" disponible.`
+      : `"${ETIQUETA_ENTREGA[actualizada.tipo]}" pausada.`
   } catch (err) {
+    opciones.value = opciones.value.map((o) =>
+      o.id === opcion.id ? { ...o, activo: anterior } : o,
+    )
     errorTarjeta.value = err
   } finally {
     procesandoId.value = null
   }
 }
 
-async function eliminarOpcion(opcion: OpcionEntrega) {
-  if (procesandoId.value !== null) return
-  procesandoId.value = opcion.id
-  errorTarjetaId.value = opcion.id
+async function confirmarEliminacion() {
+  const objetivo = opcionPorEliminar.value
+  if (!objetivo || eliminando.value) return
+  eliminando.value = true
+  errorTarjetaId.value = objetivo.id
   errorTarjeta.value = null
   aviso.value = ''
   try {
     // Si la opción ya fue usada en algún pedido, la API responde 409 y sugiere desactivarla
-    await del(`/mi-taller/opciones-entrega/${opcion.id}`)
-    opciones.value = opciones.value.filter((o) => o.id !== opcion.id)
-    confirmandoId.value = null
-    if (editandoId.value === opcion.id) cerrarEdicion()
+    await del(`/mi-taller/opciones-entrega/${objetivo.id}`)
+    opciones.value = opciones.value.filter((o) => o.id !== objetivo.id)
+    if (editandoId.value === objetivo.id) cerrarEdicion()
     sincronizarTipoNuevo()
-    aviso.value = `Opción "${ETIQUETA_ENTREGA[opcion.tipo]}" eliminada.`
+    opcionPorEliminar.value = null
+    aviso.value = `Opción "${ETIQUETA_ENTREGA[objetivo.tipo]}" eliminada.`
   } catch (err) {
     errorTarjeta.value = err
-    confirmandoId.value = null
+    opcionPorEliminar.value = null
   } finally {
-    procesandoId.value = null
+    eliminando.value = false
   }
 }
 
@@ -207,12 +228,13 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="panel">
-    <NavegacionTaller
-      titulo="Opciones de entrega"
-      subtitulo="Configura cómo pueden recibir o recoger sus piezas tus compradores."
-    />
-
+  <LayoutPanel
+    antetitulo="Panel del artesano"
+    titulo="Opciones de entrega"
+    descripcion="Configura cómo pueden recibir o recoger sus piezas tus compradores."
+    :pestanas="pestanas"
+    etiqueta-pestanas="Secciones del taller"
+  >
     <EstadoCarga v-if="cargando" />
     <MensajeError v-else-if="errorCarga" :error="errorCarga" reintentable @reintentar="cargar" />
 
@@ -262,10 +284,7 @@ onMounted(cargar)
           </div>
         </div>
 
-        <label class="casilla">
-          <input v-model="nuevoActivo" type="checkbox" />
-          <span>Disponible desde el inicio en el checkout</span>
-        </label>
+        <InterruptorBase v-model="nuevoActivo" etiqueta="Disponible desde el inicio en el checkout" />
 
         <MensajeError v-if="errorCrear" :error="errorCrear" />
 
@@ -295,8 +314,11 @@ onMounted(cargar)
             <div class="tarjeta__info">
               <div class="tarjeta__titulo-fila">
                 <h2>{{ ETIQUETA_ENTREGA[opcion.tipo] }}</h2>
-                <span class="insignia" :class="opcion.activo ? 'insignia--activa' : 'insignia--inactiva'">
-                  {{ opcion.activo ? 'Activa' : 'Inactiva' }}
+                <span
+                  class="insignia"
+                  :class="opcion.activo ? 'insignia--activa' : 'insignia--inactiva'"
+                >
+                  {{ opcion.activo ? 'Disponible' : 'Pausada' }}
                 </span>
               </div>
               <p class="tarjeta__descripcion">{{ DESCRIPCION_ENTREGA[opcion.tipo] }}</p>
@@ -346,10 +368,7 @@ onMounted(cargar)
               </div>
             </div>
 
-            <label class="casilla">
-              <input v-model="editActivo" type="checkbox" />
-              <span>Opción activa</span>
-            </label>
+            <InterruptorBase v-model="editActivo" etiqueta="Disponible" />
 
             <div class="acciones">
               <BotonBase type="submit" variante="comprar" :cargando="procesandoId === opcion.id">
@@ -365,65 +384,50 @@ onMounted(cargar)
             </div>
           </form>
 
-          <div v-else class="acciones">
-            <BotonBase
-              variante="secundario"
-              :disabled="procesandoId !== null"
-              @click="abrirEdicion(opcion)"
-            >
-              Editar
-            </BotonBase>
+          <div v-else class="tarjeta__pie">
+            <InterruptorBase
+              :model-value="opcion.activo"
+              etiqueta="Disponible"
+              :disabled="procesandoId !== null || eliminando"
+              @update:model-value="(disponible) => cambiarDisponibilidad(opcion, disponible)"
+            />
 
-            <BotonBase
-              variante="secundario"
-              :cargando="procesandoId === opcion.id"
-              :disabled="procesandoId !== null"
-              @click="alternarActivo(opcion)"
-            >
-              {{ opcion.activo ? 'Desactivar' : 'Activar' }}
-            </BotonBase>
-
-            <template v-if="confirmandoId === opcion.id">
-              <span class="confirmacion-texto">¿Eliminar opción?</span>
-              <BotonBase
-                variante="comprar"
-                :cargando="procesandoId === opcion.id"
-                :disabled="procesandoId !== null"
-                @click="eliminarOpcion(opcion)"
-              >
-                Confirmar
-              </BotonBase>
+            <div class="acciones">
               <BotonBase
                 variante="secundario"
-                :disabled="procesandoId !== null"
-                @click="confirmandoId = null"
+                :disabled="procesandoId !== null || eliminando"
+                @click="abrirEdicion(opcion)"
               >
-                Cancelar
+                Editar
               </BotonBase>
-            </template>
 
-            <BotonBase
-              v-else
-              variante="secundario"
-              :disabled="procesandoId !== null"
-              @click="confirmandoId = opcion.id"
-            >
-              Eliminar
-            </BotonBase>
+              <BotonBase
+                variante="peligro"
+                :disabled="procesandoId !== null || eliminando"
+                @click="opcionPorEliminar = opcion"
+              >
+                Eliminar
+              </BotonBase>
+            </div>
           </div>
         </li>
       </ul>
     </div>
-  </section>
+
+    <DialogoConfirmar
+      :abierto="opcionPorEliminar !== null"
+      :titulo="tituloEliminar"
+      mensaje="Los compradores ya no podrán elegir esta opción al hacer un pedido. Si ya se usó en pedidos anteriores, solo podrás pausarla desactivando Disponible."
+      texto-confirmar="Eliminar"
+      peligroso
+      :cargando="eliminando"
+      @confirmar="confirmarEliminacion"
+      @cancelar="opcionPorEliminar = null"
+    />
+  </LayoutPanel>
 </template>
 
 <style scoped>
-.panel {
-  max-width: var(--ancho-maximo);
-  margin: 0 auto;
-  padding: var(--space-5) var(--margen-lateral);
-}
-
 .contenido-entregas {
   display: flex;
   flex-direction: column;
@@ -433,7 +437,7 @@ onMounted(cargar)
 .aviso,
 .aviso-completo {
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-etiqueta-fondo);
   color: var(--color-etiqueta-texto);
@@ -453,7 +457,7 @@ onMounted(cargar)
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
@@ -476,6 +480,7 @@ onMounted(cargar)
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .campo--ancho {
@@ -493,9 +498,11 @@ onMounted(cargar)
 }
 
 .campo__input {
+  width: 100%;
+  min-width: 0;
   min-height: var(--alto-control);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-fondo);
   font-size: var(--texto-base);
@@ -506,18 +513,9 @@ onMounted(cargar)
   resize: vertical;
 }
 
-.casilla {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .vacio {
   padding: var(--space-6) var(--space-4);
-  border: 1px dashed var(--color-linea);
+  border: var(--borde-fino) dashed var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   color: var(--color-texto-secundario);
@@ -601,7 +599,17 @@ onMounted(cargar)
   flex-direction: column;
   gap: var(--space-3);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--color-linea);
+  border-top: var(--borde-fino) solid var(--color-linea);
+}
+
+.tarjeta__pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--borde-fino) solid var(--color-linea);
 }
 
 .acciones {
@@ -609,11 +617,6 @@ onMounted(cargar)
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-}
-
-.confirmacion-texto {
-  font-size: var(--texto-sm);
-  font-weight: 600;
 }
 
 @media (max-width: 40rem) {
@@ -633,6 +636,11 @@ onMounted(cargar)
 
   .tarjeta__costo {
     white-space: normal;
+  }
+
+  .tarjeta__pie {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

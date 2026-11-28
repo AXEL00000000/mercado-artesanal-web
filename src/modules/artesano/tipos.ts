@@ -1,70 +1,11 @@
-/** Contratos y diccionarios del panel del artesano (/api/mi-taller/*). */
+/** Contratos exclusivos del panel del artesano (/api/mi-taller/*), diccionarios y helpers. */
 import type {
-  ComunidadResumen,
+  EstadoPago,
+  EstadoPedido,
   EstadoVerificacion,
-  ImagenProducto,
-  MedidasCm,
   ModoVenta,
 } from '@/shared/api/tipos'
-
-/** Respuesta de GET / POST / PUT /mi-taller (estado completo del taller propio). */
-export interface MiTaller {
-  id: number
-  usuario_id: number
-  nombre_taller: string
-  biografia: string | null
-  foto_url: string | null
-  whatsapp: string
-  direccion_taller: string
-  cp_taller: string
-  estado_verificacion: EstadoVerificacion
-  comunidad: ComunidadResumen
-  created_at: string
-}
-
-export interface TallerEntrada {
-  comunidad_id: number
-  nombre_taller: string
-  biografia?: string | null
-  foto_url?: string | null
-  whatsapp: string
-  direccion_taller: string
-  cp_taller: string
-}
-
-export interface CategoriaProducto {
-  id: number
-  slug: string
-  nombre: string
-}
-
-export interface MiProductoBase {
-  id: number
-  nombre: string
-  slug: string
-  descripcion: string | null
-  modo_venta: ModoVenta
-  precio: number
-  stock: number | null
-  material: string | null
-  tecnica: string | null
-  peso_g: number | null
-  medidas_cm: MedidasCm
-  activo: boolean
-  categoria: CategoriaProducto
-  created_at: string
-  updated_at: string
-}
-
-/** El listado GET /mi-taller/productos solo devuelve la URL de la imagen principal. */
-export interface MiProductoLista extends MiProductoBase {
-  imagen: string | null
-}
-
-/** El detalle individual GET /mi-taller/productos/:id devuelve la galería completa. */
-export interface MiProductoDetalle extends MiProductoBase {
-  imagenes: ImagenProducto[]
-}
+import type { PestanaPanel } from '@/shared/components/tipos'
 
 /** En modo 'fijo' stock es obligatorio; en 'tratar', null representa venta sobre pedido. */
 export interface ProductoEntrada {
@@ -108,8 +49,6 @@ export interface OpcionEntregaEditar {
   activo?: boolean
 }
 
-export type EstadoPedido = 'pendiente_pago' | 'pagado' | 'enviado' | 'entregado' | 'cancelado'
-export type EstadoPago = 'pendiente' | 'aprobado' | 'rechazado' | 'reembolsado'
 export type EstadoEnvio = 'pendiente' | 'guia_generada' | 'en_transito' | 'entregado'
 
 export interface PedidoEnvio {
@@ -202,6 +141,19 @@ export interface RespuestaConsultasTaller {
   total: number
   por_producto: ResumenConsultaProducto[]
   consultas: ConsultaItem[]
+}
+
+/** Pestañas del panel; oculta las subrutas mientras el usuario no haya registrado su taller. */
+export function pestanasArtesano(tieneTaller: boolean): PestanaPanel[] {
+  const base: PestanaPanel[] = [{ etiqueta: 'Mi taller', to: { name: 'mi-taller' } }]
+  if (!tieneTaller) return base
+  return [
+    ...base,
+    { etiqueta: 'Productos', to: { name: 'mi-taller-productos' } },
+    { etiqueta: 'Entregas', to: { name: 'mi-taller-entregas' } },
+    { etiqueta: 'Ventas', to: { name: 'mi-taller-ventas' } },
+    { etiqueta: 'Consultas', to: { name: 'mi-taller-consultas' } },
+  ]
 }
 
 export const ETIQUETA_VERIFICACION: Record<EstadoVerificacion, string> = {

@@ -3,13 +3,18 @@ import { computed, onMounted, ref } from 'vue'
 import { get } from '@/shared/api/cliente'
 import BotonBase from '@/shared/components/BotonBase.vue'
 import EstadoCarga from '@/shared/components/EstadoCarga.vue'
+import LayoutPanel from '@/shared/components/LayoutPanel.vue'
 import MensajeError from '@/shared/components/MensajeError.vue'
-import NavegacionTaller from '../components/NavegacionTaller.vue'
+import { useSesionStore } from '@/stores/sesion'
 import {
   ETIQUETA_ORIGEN_CONSULTA,
   formatearFechaHora,
+  pestanasArtesano,
   type RespuestaConsultasTaller,
 } from '../tipos'
+
+const sesion = useSesionStore()
+const pestanas = computed(() => pestanasArtesano(sesion.tieneTaller))
 
 const cargando = ref(true)
 const errorCarga = ref<unknown>(null)
@@ -50,11 +55,13 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="panel">
-    <NavegacionTaller
-      titulo="Consultas"
-      subtitulo="Revisa cuántas personas han consultado tus piezas por WhatsApp."
-    />
+  <LayoutPanel
+    antetitulo="Panel del artesano"
+    titulo="Consultas"
+    descripcion="Revisa cuántas personas han consultado tus piezas por WhatsApp."
+    :pestanas="pestanas"
+    etiqueta-pestanas="Secciones del taller"
+  >
 
     <EstadoCarga v-if="cargando" />
     <MensajeError v-else-if="errorCarga" :error="errorCarga" reintentable @reintentar="cargar" />
@@ -141,20 +148,14 @@ onMounted(cargar)
         </ul>
       </section>
     </div>
-  </section>
+  </LayoutPanel>
 </template>
 
 <style scoped>
-.panel {
-  max-width: var(--ancho-maximo);
-  margin: 0 auto;
-  padding: var(--space-5) var(--margen-lateral);
-}
-
 .vacio,
 .vacio-lista {
   padding: var(--space-7) var(--space-4);
-  border: 1px dashed var(--color-linea);
+  border: var(--borde-fino) dashed var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   color: var(--color-texto-secundario);
@@ -172,7 +173,7 @@ onMounted(cargar)
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
@@ -226,12 +227,12 @@ onMounted(cargar)
   gap: var(--space-1);
   width: 100%;
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color var(--duracion-rapida);
 }
 
 .producto-tarjeta:hover,
@@ -279,7 +280,7 @@ onMounted(cargar)
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid var(--color-linea);
+  border: var(--borde-fino) solid var(--color-linea);
   border-radius: var(--radius-control);
   background: var(--color-superficie);
 }
